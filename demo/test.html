@@ -1,0 +1,146 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>Voice AI Widget Demo</title>
+  <link rel="stylesheet" href="../src/components/voice-agent-widget.css">
+  <style>
+    * {
+      margin: 0;
+      padding: 0;
+      box-sizing: border-box;
+    }
+
+    body {
+      font-family: -apple-system, BlinkMacSystemFont, 'SF Pro Display', system-ui, sans-serif;
+      min-height: 100vh;
+      color: rgba(255, 255, 255, 0.9);
+      overflow: hidden;
+      position: relative;
+      /* Hot air balloons - Cappadocia style */
+      background: 
+        url('https://images.unsplash.com/photo-1507608616759-54f48f0af0ee?w=1920&q=80') center/cover no-repeat fixed;
+    }
+
+    /* Dark overlay for widget visibility */
+    body::before {
+      content: '';
+      position: fixed;
+      inset: 0;
+      background: rgba(0, 0, 0, 0.35);
+      pointer-events: none;
+    }
+
+    /* Content - Glass card */
+    .content {
+      position: relative;
+      z-index: 1;
+      margin: 48px;
+      padding: 32px 40px;
+      max-width: 500px;
+      background: rgba(0, 0, 0, 0.5);
+      backdrop-filter: blur(20px);
+      -webkit-backdrop-filter: blur(20px);
+      border-radius: 24px;
+      border: 1px solid rgba(255, 255, 255, 0.1);
+      box-shadow: 0 24px 48px rgba(0, 0, 0, 0.3);
+    }
+
+    h1 {
+      font-size: 24px;
+      font-weight: 600;
+      letter-spacing: -0.02em;
+      color: #fff;
+      margin-bottom: 8px;
+    }
+
+    p {
+      font-size: 14px;
+      line-height: 1.6;
+      color: rgba(255, 255, 255, 0.7);
+      margin-bottom: 20px;
+    }
+
+    .state-legend {
+      display: flex;
+      flex-wrap: wrap;
+      gap: 20px;
+    }
+
+    .state-item {
+      display: flex;
+      align-items: center;
+      gap: 10px;
+      font-size: 13px;
+      color: rgba(255, 255, 255, 0.8);
+    }
+
+    .state-shape {
+      width: 32px;
+      height: 32px;
+      background: rgba(10, 15, 25, 0.8);
+      backdrop-filter: blur(12px);
+      border: 1.5px solid rgba(45, 212, 191, 0.5);
+      box-shadow: 
+        0 0 16px rgba(45, 212, 191, 0.25),
+        0 4px 12px rgba(0, 0, 0, 0.3),
+        inset 0 1px 0 rgba(255, 255, 255, 0.08);
+    }
+
+    .state-shape-circle {
+      border-radius: 50%;
+    }
+
+    .state-shape-square {
+      border-radius: 10px;
+    }
+
+  </style>
+</head>
+<body>
+  <div class="content">
+    <h1>Voice AI Widget</h1>
+    <p>Click the widget in the bottom-right corner to connect. The widget shape changes based on agent state.</p>
+    
+    <div class="state-legend">
+      <div class="state-item">
+        <div class="state-shape state-shape-circle"></div>
+        <span>Listening</span>
+      </div>
+      <div class="state-item">
+        <div class="state-shape state-shape-square"></div>
+        <span>Speaking</span>
+      </div>
+    </div>
+  </div>
+  
+  <script type="module">
+    // SDK import
+    // NOTE: VoiceAgentWidget is SAMPLE CODE - copy src/components/ and customize for your UI
+    import VoiceAI, { VoiceAgentWidget } from '../dist/index.esm.js';
+
+    try {
+      // Replace with your own credentials from the Voice.AI dashboard
+      const connectionOptions = {
+        apiKey: 'PUT_YOUR_API_KEY_HERE',      // Get from Voice.AI dashboard (starts with vk_)
+        agentId: 'PUT_YOUR_AGENT_ID_HERE',    // Your agent ID
+      };
+
+      const voiceai = new VoiceAI({
+        apiKey: connectionOptions.apiKey,
+      });
+
+      const widget = new VoiceAgentWidget({
+        sdk: voiceai,
+        connectionOptions,
+        position: 'bottom-right',
+      });
+
+      console.log('✅ Widget initialized');
+    } catch (error) {
+      console.error('❌ Error:', error);
+    }
+  </script>
+</body>
+</html>
