@@ -169,6 +169,79 @@ export interface MCPServerConfig {
   headers?: Record<string, string> | null;
 }
 
+// =============================================================================
+// WEBHOOK TYPES
+// =============================================================================
+
+/** Webhook event types */
+export type WebhookEventType = 'call.started' | 'call.completed';
+
+/** Webhook event notification configuration (for creating/updating) */
+export interface WebhookEventsConfig {
+  /** Webhook endpoint URL (required) */
+  url: string;
+  /** HMAC-SHA256 signing secret for payload verification */
+  secret?: string | null;
+  /** Event types to receive. Empty array = all events. Options: 'call.started', 'call.completed' */
+  events?: WebhookEventType[];
+  /** Request timeout in seconds (default: 5, range: 1-30) */
+  timeout?: number;
+  /** Whether webhook notifications are active (default: true) */
+  enabled?: boolean;
+}
+
+/** Public webhook events config (returned by API, secret not exposed) */
+export interface PublicWebhookEventsConfig {
+  /** Webhook endpoint URL */
+  url: string;
+  /** Whether a signing secret is configured */
+  has_secret?: boolean;
+  /** Event types configured to receive */
+  events?: WebhookEventType[];
+  /** Request timeout in seconds */
+  timeout?: number;
+  /** Whether webhook notifications are active */
+  enabled?: boolean;
+}
+
+/** Webhooks configuration (for creating/updating) */
+export interface WebhooksConfig {
+  /** Event notification webhook configuration */
+  events?: WebhookEventsConfig | null;
+}
+
+/** Public webhooks configuration (returned by API) */
+export interface PublicWebhooksConfig {
+  /** Event notification webhook configuration */
+  events?: PublicWebhookEventsConfig | null;
+}
+
+/** Webhook event payload (received at your webhook URL) */
+export interface WebhookEvent {
+  /** Event type */
+  event: WebhookEventType | 'test';
+  /** ISO 8601 timestamp of when the event occurred */
+  timestamp: string;
+  /** Unique identifier for the call (may be null for test events) */
+  call_id?: string | null;
+  /** Agent ID that generated the event */
+  agent_id: string;
+  /** Event-specific additional data */
+  data: Record<string, any>;
+}
+
+/** Response from testing webhook configuration */
+export interface WebhookTestResponse {
+  /** Test result status */
+  status: 'success' | 'failed';
+  /** Human-readable result description */
+  message: string;
+  /** Error details if the test failed */
+  error?: string | null;
+  /** Number of delivery attempts made */
+  attempts: number;
+}
+
 /** Public agent configuration */
 export interface PublicAgentConfig {
   /** Agent system prompt */
@@ -211,6 +284,8 @@ export interface PublicAgentConfig {
   vad_activation_threshold?: number | null;
   /** Phone number in E.164 format */
   phone_number?: string | null;
+  /** Webhook configuration for event notifications */
+  webhooks?: PublicWebhooksConfig | null;
   /** MCP servers configuration */
   mcp_servers?: MCPServerConfig[] | null;
 }

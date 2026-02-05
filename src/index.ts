@@ -757,6 +757,15 @@ export type {
   PaginatedAgentResponse,
   ListAgentsOptions,
   
+  // Webhook types
+  WebhookEventType,
+  WebhookEventsConfig,
+  PublicWebhookEventsConfig,
+  WebhooksConfig,
+  PublicWebhooksConfig,
+  WebhookEvent,
+  WebhookTestResponse,
+  
   // Analytics types
   CallHistoryItem,
   PaginatedCallHistoryResponse,
