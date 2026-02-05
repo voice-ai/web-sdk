@@ -1,5 +1,5 @@
 /**
- * Type definitions for Voice.AI Web SDK
+ * Type definitions for Voice.ai Web SDK
  * 
  * This file contains all TypeScript types for the SDK including:
  * - Agent Connection types (real-time voice)

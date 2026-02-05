@@ -1,4 +1,4 @@
-# Contributing to Voice.AI Web SDK
+# Contributing to Voice.ai Web SDK
 
 Thanks for your interest in contributing! Here's how to get started.
 

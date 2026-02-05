@@ -1,5 +1,5 @@
 /**
- * VoiceAgentWidget - UI widget for Voice.AI
+ * VoiceAgentWidget - UI widget for Voice.ai
  * 
  * Features:
  * - Click to connect/disconnect

@@ -1,6 +1,6 @@
-# Voice.AI Web SDK
+# Voice.ai Web SDK
 
-The official Voice.AI SDK for JavaScript/TypeScript applications.
+The official Voice.ai SDK for JavaScript/TypeScript applications.
 
 ## Installation
 

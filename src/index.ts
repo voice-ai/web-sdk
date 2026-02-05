@@ -1,7 +1,7 @@
 /**
- * Voice.AI Web SDK
+ * Voice.ai Web SDK
  * 
- * A single, unified SDK for Voice.AI services.
+ * A single, unified SDK for Voice.ai services.
  * 
  * @example
  * ```typescript
@@ -49,7 +49,7 @@ import type {
 const DEFAULT_API_URL = 'https://dev.voice.ai/api/v1';
 
 /**
- * VoiceAI - The unified Voice.AI SDK
+ * VoiceAI - The unified Voice.ai SDK
  * 
  * Provides both real-time voice agent connections and REST API access
  * through a single, easy-to-use interface.
@@ -112,7 +112,7 @@ export class VoiceAI {
    * Create a new VoiceAI client
    * 
    * @param config - Configuration options
-   * @param config.apiKey - Your Voice.AI API key (required)
+   * @param config.apiKey - Your Voice.ai API key (required)
    * @param config.apiUrl - Custom API URL (optional, defaults to production)
    */
   constructor(config: VoiceAIConfig) {
