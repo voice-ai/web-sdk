@@ -744,7 +744,7 @@ export type {
   // Agent types
   TTSParams,
   MCPServerConfig,
-  PublicAgentConfig,
+  AgentConfig,
   Agent,
   CreateAgentRequest,
   UpdateAgentRequest,
@@ -760,9 +760,7 @@ export type {
   // Webhook types
   WebhookEventType,
   WebhookEventsConfig,
-  PublicWebhookEventsConfig,
   WebhooksConfig,
-  PublicWebhooksConfig,
   WebhookEvent,
   WebhookTestResponse,
   

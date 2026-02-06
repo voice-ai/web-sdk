@@ -39,6 +39,7 @@ export interface ConnectionOptions {
   audioOptions?: AudioCaptureOptions;
   /** Enable pre-connect audio buffering (default: true) - improves mobile timing */
   preConnectBuffer?: boolean;
+  [key: string]: any;
 }
 
 export interface TranscriptionSegment {
@@ -151,6 +152,7 @@ export interface TTSParams {
   temperature?: number | null;
   /** Nucleus sampling parameter (0.0-1.0). Controls diversity of output. */
   top_p?: number | null;
+  [key: string]: any;
 }
 
 /** MCP Server configuration */
@@ -167,6 +169,7 @@ export interface MCPServerConfig {
   auth_token?: string | null;
   /** HTTP headers for authentication or custom configuration */
   headers?: Record<string, string> | null;
+  [key: string]: any;
 }
 
 // =============================================================================
@@ -176,44 +179,28 @@ export interface MCPServerConfig {
 /** Webhook event types */
 export type WebhookEventType = 'call.started' | 'call.completed';
 
-/** Webhook event notification configuration (for creating/updating) */
+/** Webhook event notification configuration */
 export interface WebhookEventsConfig {
   /** Webhook endpoint URL (required) */
   url: string;
-  /** HMAC-SHA256 signing secret for payload verification */
+  /** HMAC-SHA256 signing secret for payload verification (set when configuring) */
   secret?: string | null;
+  /** Whether a signing secret is configured (returned by API) */
+  has_secret?: boolean;
   /** Event types to receive. Empty array = all events. Options: 'call.started', 'call.completed' */
   events?: WebhookEventType[];
   /** Request timeout in seconds (default: 5, range: 1-30) */
   timeout?: number;
   /** Whether webhook notifications are active (default: true) */
   enabled?: boolean;
+  [key: string]: any;
 }
 
-/** Public webhook events config (returned by API, secret not exposed) */
-export interface PublicWebhookEventsConfig {
-  /** Webhook endpoint URL */
-  url: string;
-  /** Whether a signing secret is configured */
-  has_secret?: boolean;
-  /** Event types configured to receive */
-  events?: WebhookEventType[];
-  /** Request timeout in seconds */
-  timeout?: number;
-  /** Whether webhook notifications are active */
-  enabled?: boolean;
-}
-
-/** Webhooks configuration (for creating/updating) */
+/** Webhooks configuration */
 export interface WebhooksConfig {
   /** Event notification webhook configuration */
   events?: WebhookEventsConfig | null;
-}
-
-/** Public webhooks configuration (returned by API) */
-export interface PublicWebhooksConfig {
-  /** Event notification webhook configuration */
-  events?: PublicWebhookEventsConfig | null;
+  [key: string]: any;
 }
 
 /** Webhook event payload (received at your webhook URL) */
@@ -242,8 +229,8 @@ export interface WebhookTestResponse {
   attempts: number;
 }
 
-/** Public agent configuration */
-export interface PublicAgentConfig {
+/** Agent configuration */
+export interface AgentConfig {
   /** Agent system prompt */
   prompt?: string | null;
   /** Initial greeting message */
@@ -285,16 +272,11 @@ export interface PublicAgentConfig {
   /** Phone number in E.164 format */
   phone_number?: string | null;
   /** Webhook configuration for event notifications */
-  webhooks?: PublicWebhooksConfig | null;
+  webhooks?: WebhooksConfig | null;
   /** MCP servers configuration */
   mcp_servers?: MCPServerConfig[] | null;
+  [key: string]: any;
 }
-
-/** Agent category */
-export type AgentCategory = 'business' | 'playground';
-
-/** Agent playground visibility */
-export type AgentPlaygroundVisibility = 'public' | 'unlisted';
 
 /** Agent object */
 export interface Agent {
@@ -303,7 +285,7 @@ export interface Agent {
   /** Agent name */
   name: string;
   /** Agent configuration */
-  config: PublicAgentConfig;
+  config: AgentConfig;
   /** Agent status (default: paused) */
   status: string;
   /** Status code (default: 1) */
@@ -314,6 +296,7 @@ export interface Agent {
   created_at: string;
   /** Last update timestamp */
   updated_at: string;
+  [key: string]: any;
 }
 
 /** Request to create a new agent */
@@ -321,9 +304,10 @@ export interface CreateAgentRequest {
   /** Agent name (cannot be empty) */
   name: string;
   /** Agent configuration */
-  config: PublicAgentConfig;
+  config: AgentConfig;
   /** Knowledge base ID to assign (optional) */
   kb_id?: number | null;
+  [key: string]: any;
 }
 
 /** Request to update an agent */
@@ -331,9 +315,10 @@ export interface UpdateAgentRequest {
   /** New agent name */
   name?: string | null;
   /** Updated configuration */
-  config?: PublicAgentConfig | null;
+  config?: AgentConfig | null;
   /** Knowledge base ID (set to null to remove) */
   kb_id?: number | null;
+  [key: string]: any;
 }
 
 /** Response from deploying an agent */
@@ -342,17 +327,20 @@ export interface AgentDeployResponse {
   message: string;
   sip_status?: string | null;
   sip_details?: Record<string, any> | null;
+  [key: string]: any;
 }
 
 /** Response from pausing an agent */
 export interface AgentPauseResponse {
   agent: Agent;
+  [key: string]: any;
 }
 
 /** Response from deleting/disabling an agent */
 export interface AgentDeleteResponse {
   agent: Agent;
   message?: string | null;
+  [key: string]: any;
 }
 
 /** Agent connection status response */
@@ -364,6 +352,7 @@ export interface AgentConnectionStatusResponse {
   status_code: number;
   call_allowed: boolean;
   call_validation_details?: Record<string, any> | null;
+  [key: string]: any;
 }
 
 /** Agent status summary */
@@ -383,11 +372,12 @@ export interface AgentStatsSummaryResponse {
 export interface InitAgentRequest {
   agent_template?: string | null;
   name?: string | null;
+  [key: string]: any;
 }
 
 /** Response from initializing agent from template */
 export interface InitAgentResponse {
-  agent_template: PublicAgentConfig;
+  agent_template: AgentConfig;
   available_types: string[];
   description: string;
 }
@@ -422,6 +412,7 @@ export interface CallHistoryItem {
   to_number?: string | null;
   transcription_summary?: string | null;
   transcription_stats?: Record<string, any> | null;
+  [key: string]: any;
 }
 
 /** Paginated call history response */
@@ -455,6 +446,7 @@ export interface KnowledgeBaseDocument {
   content: string;
   /** Optional metadata dictionary */
   metadata?: Record<string, any> | null;
+  [key: string]: any;
 }
 
 /** Request to create a knowledge base */
@@ -465,6 +457,7 @@ export interface CreateKnowledgeBaseRequest {
   description?: string | null;
   /** List of documents (at least one required) */
   documents: KnowledgeBaseDocument[];
+  [key: string]: any;
 }
 
 /** Request to update a knowledge base */
@@ -475,6 +468,7 @@ export interface UpdateKnowledgeBaseRequest {
   description?: string | null;
   /** Documents to replace all existing (if provided) */
   documents?: KnowledgeBaseDocument[] | null;
+  [key: string]: any;
 }
 
 /** Knowledge base response (without documents) */
@@ -486,6 +480,7 @@ export interface KnowledgeBaseResponse {
   created_at: string;
   updated_at: string;
   message?: string | null;
+  [key: string]: any;
 }
 
 /** Knowledge base with documents */
@@ -532,6 +527,7 @@ export interface SearchPhoneNumbersRequest {
   area_code?: string | null;
   /** Provider: 'twilio' or 'telnyx' (default: 'twilio') */
   provider?: string;
+  [key: string]: any;
 }
 
 /** Response from searching phone numbers */
@@ -546,6 +542,7 @@ export interface PurchasePhoneNumberRequest {
   phone_number: string;
   /** Provider: 'twilio' or 'telnyx' (default: 'twilio') */
   provider?: string;
+  [key: string]: any;
 }
 
 /** Response from selecting or releasing a phone number */
@@ -583,6 +580,7 @@ export interface ConnectionDetailsRequest {
   agent_id?: string | null;
   metadata?: string | null;
   environment?: string | null;
+  [key: string]: any;
 }
 
 /** Response with connection details */
@@ -590,6 +588,7 @@ export interface ConnectionDetailsResponse {
   server_url: string;
   participant_token: string;
   call_id: string;
+  [key: string]: any;
 }
 
 /** End call response */
@@ -599,6 +598,7 @@ export interface EndCallResponse {
   ended_at: string;
   actual_duration_seconds: number;
   credits_used: number;
+  [key: string]: any;
 }
 
 // =============================================================================
@@ -613,5 +613,3 @@ export interface VoiceAIConfig {
   apiUrl?: string;
 }
 
-/** @deprecated Use VoiceAIConfig instead */
-export type VoiceAIClientConfig = VoiceAIConfig;

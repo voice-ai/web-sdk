@@ -30,7 +30,7 @@
  * ```
  */
 
-import type { VoiceAIClientConfig } from '../types';
+import type { VoiceAIConfig } from '../types';
 import { AgentClient } from './agents';
 import { AnalyticsClient } from './analytics';
 import { KnowledgeBaseClient } from './knowledge-base';
@@ -70,7 +70,7 @@ export class VoiceAIClient {
    * });
    * ```
    */
-  constructor(config: VoiceAIClientConfig) {
+  constructor(config: VoiceAIConfig) {
     if (!config.apiKey) {
       throw new Error('API key is required');
     }

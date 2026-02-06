@@ -2,9 +2,7 @@ import { describe, it, expect, beforeEach, vi, Mock } from 'vitest';
 import { VoiceAIClient } from '../client';
 import type {
   WebhookEventsConfig,
-  PublicWebhookEventsConfig,
   WebhooksConfig,
-  PublicWebhooksConfig,
   WebhookEvent,
   WebhookEventType,
   WebhookTestResponse,
@@ -61,9 +59,9 @@ describe('Webhook Types', () => {
     });
   });
 
-  describe('PublicWebhookEventsConfig', () => {
-    it('should have has_secret instead of secret', () => {
-      const config: PublicWebhookEventsConfig = {
+  describe('WebhookEventsConfig (response shape)', () => {
+    it('should support has_secret field for API responses', () => {
+      const config: WebhookEventsConfig = {
         url: 'https://example.com/webhooks',
         has_secret: true,
         events: ['call.started'],
@@ -73,11 +71,10 @@ describe('Webhook Types', () => {
 
       expect(config.url).toBe('https://example.com/webhooks');
       expect(config.has_secret).toBe(true);
-      expect((config as any).secret).toBeUndefined();
     });
 
     it('should indicate no secret when has_secret is false', () => {
-      const config: PublicWebhookEventsConfig = {
+      const config: WebhookEventsConfig = {
         url: 'https://example.com/webhooks',
         has_secret: false,
         events: ['call.completed'],
@@ -117,9 +114,9 @@ describe('Webhook Types', () => {
     });
   });
 
-  describe('PublicWebhooksConfig', () => {
-    it('should use PublicWebhookEventsConfig for events', () => {
-      const config: PublicWebhooksConfig = {
+  describe('WebhooksConfig (response shape)', () => {
+    it('should support has_secret in nested events config', () => {
+      const config: WebhooksConfig = {
         events: {
           url: 'https://example.com/webhooks',
           has_secret: true,
@@ -129,7 +126,6 @@ describe('Webhook Types', () => {
       };
 
       expect(config.events?.has_secret).toBe(true);
-      expect((config.events as any).secret).toBeUndefined();
     });
   });
 
