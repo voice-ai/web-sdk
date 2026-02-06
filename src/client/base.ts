@@ -1,5 +1,5 @@
 /**
- * Base HTTP Client for Voice.AI API
+ * Base HTTP Client for Voice.ai API
  * 
  * Provides common functionality for all API clients including:
  * - Authentication via Bearer token
@@ -9,7 +9,7 @@
 
 import type { ErrorResponse, HTTPValidationError } from '../types';
 
-/** Error thrown by Voice.AI API client */
+/** Error thrown by Voice.ai API client */
 export class VoiceAIError extends Error {
   constructor(
     message: string,

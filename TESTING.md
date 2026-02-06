@@ -1,6 +1,6 @@
-# Testing the Voice.AI Web SDK
+# Testing the Voice.ai Web SDK
 
-This document describes how to run and write tests for the Voice.AI Web SDK.
+This document describes how to run and write tests for the Voice.ai Web SDK.
 
 ## Test Framework
 

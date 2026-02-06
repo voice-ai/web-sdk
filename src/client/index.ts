@@ -1,7 +1,7 @@
 /**
- * VoiceAIClient - Main API Client for Voice.AI Agent API
+ * VoiceAIClient - Main API Client for Voice.ai Agent API
  * 
- * Provides access to Voice.AI Agent API functionality through sub-clients:
+ * Provides access to Voice.ai Agent API functionality through sub-clients:
  * - agents: Agent management (create, update, deploy, pause, delete)
  * - analytics: Call history and stats
  * - knowledgeBase: Knowledge base management for RAG
@@ -30,7 +30,7 @@
  * ```
  */
 
-import type { VoiceAIClientConfig } from '../types';
+import type { VoiceAIConfig } from '../types';
 import { AgentClient } from './agents';
 import { AnalyticsClient } from './analytics';
 import { KnowledgeBaseClient } from './knowledge-base';
@@ -39,7 +39,7 @@ import { PhoneNumberClient } from './phone-numbers';
 export { VoiceAIError } from './base';
 
 /**
- * Main API client for Voice.AI Agent API
+ * Main API client for Voice.ai Agent API
  */
 export class VoiceAIClient {
   /** Agent management client */
@@ -70,7 +70,7 @@ export class VoiceAIClient {
    * });
    * ```
    */
-  constructor(config: VoiceAIClientConfig) {
+  constructor(config: VoiceAIConfig) {
     if (!config.apiKey) {
       throw new Error('API key is required');
     }

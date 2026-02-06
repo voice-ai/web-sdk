@@ -387,6 +387,142 @@ describe('VoiceAIClient', () => {
     });
   });
 
+  describe('request and response serialization', () => {
+    let client: VoiceAIClient;
+
+    beforeEach(() => {
+      client = new VoiceAIClient({ apiKey: 'vk_test_key' });
+    });
+
+    it('should send all fields in CreateAgentRequest to the API', async () => {
+      const mockAgent = {
+        agent_id: 'agent-123',
+        name: 'New Agent',
+        config: { prompt: 'Test prompt' },
+        status: 'paused',
+        status_code: 1,
+        created_at: '2024-01-01T00:00:00Z',
+        updated_at: '2024-01-01T00:00:00Z',
+      };
+      (global.fetch as Mock).mockResolvedValueOnce({
+        ok: true,
+        headers: new Headers({ 'content-type': 'application/json' }),
+        json: async () => mockAgent,
+      });
+
+      await client.agents.create({
+        name: 'New Agent',
+        config: { prompt: 'Test prompt' },
+        foo: true,
+        bar: 'baz',
+      } as any);
+
+      expect(global.fetch).toHaveBeenCalledWith(
+        'https://dev.voice.ai/api/v1/agent/',
+        expect.objectContaining({
+          method: 'POST',
+          body: JSON.stringify({
+            name: 'New Agent',
+            config: { prompt: 'Test prompt' },
+            foo: true,
+            bar: 'baz',
+          }),
+        })
+      );
+    });
+
+    it('should send all fields in UpdateAgentRequest to the API', async () => {
+      const mockAgent = { agent_id: 'agent-123', name: 'Updated Agent' };
+      (global.fetch as Mock).mockResolvedValueOnce({
+        ok: true,
+        headers: new Headers({ 'content-type': 'application/json' }),
+        json: async () => mockAgent,
+      });
+
+      await client.agents.update('agent-123', {
+        name: 'Updated Agent',
+        notes: 'some_value',
+      } as any);
+
+      expect(global.fetch).toHaveBeenCalledWith(
+        'https://dev.voice.ai/api/v1/agent/agent-123',
+        expect.objectContaining({
+          method: 'PUT',
+          body: JSON.stringify({
+            name: 'Updated Agent',
+            notes: 'some_value',
+          }),
+        })
+      );
+    });
+
+    it('should send all fields in agent config to the API', async () => {
+      const mockAgent = {
+        agent_id: 'agent-123',
+        name: 'Config Agent',
+        config: { prompt: 'Test', custom_a: 42 },
+        status: 'paused',
+        status_code: 1,
+        created_at: '2024-01-01T00:00:00Z',
+        updated_at: '2024-01-01T00:00:00Z',
+      };
+      (global.fetch as Mock).mockResolvedValueOnce({
+        ok: true,
+        headers: new Headers({ 'content-type': 'application/json' }),
+        json: async () => mockAgent,
+      });
+
+      await client.agents.create({
+        name: 'Config Agent',
+        config: {
+          prompt: 'Test',
+          custom_a: 42,
+          custom_b: 'hello',
+        },
+      });
+
+      expect(global.fetch).toHaveBeenCalledWith(
+        'https://dev.voice.ai/api/v1/agent/',
+        expect.objectContaining({
+          method: 'POST',
+          body: JSON.stringify({
+            name: 'Config Agent',
+            config: {
+              prompt: 'Test',
+              custom_a: 42,
+              custom_b: 'hello',
+            },
+          }),
+        })
+      );
+    });
+
+    it('should preserve all fields in API responses', async () => {
+      const mockAgent = {
+        agent_id: 'agent-123',
+        name: 'Test Agent',
+        config: { prompt: 'Test' },
+        status: 'deployed',
+        status_code: 2,
+        created_at: '2024-01-01T00:00:00Z',
+        updated_at: '2024-01-01T00:00:00Z',
+        tags: { key: 'value' },
+        labels: ['a', 'b'],
+      };
+      (global.fetch as Mock).mockResolvedValueOnce({
+        ok: true,
+        headers: new Headers({ 'content-type': 'application/json' }),
+        json: async () => mockAgent,
+      });
+
+      const result = await client.agents.getById('agent-123');
+
+      expect(result.agent_id).toBe('agent-123');
+      expect((result as any).tags).toEqual({ key: 'value' });
+      expect((result as any).labels).toEqual(['a', 'b']);
+    });
+  });
+
   describe('Error handling', () => {
     let client: VoiceAIClient;
 

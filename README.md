@@ -1,6 +1,6 @@
-# Voice.AI Web SDK
+# Voice.ai Web SDK
 
-The official Voice.AI SDK for JavaScript/TypeScript applications.
+The official Voice.ai SDK for JavaScript/TypeScript applications.
 
 ## Installation
 
@@ -34,6 +34,7 @@ The SDK provides a unified interface for:
 
 - **Real-time Voice** - Connect to voice agents with live transcription
 - **Agent Management** - Create, update, deploy, and manage agents
+- **Webhooks** - Receive real-time notifications for call events
 - **Analytics** - Access call history and transcripts
 - **Knowledge Base** - Manage RAG documents for your agents
 - **Phone Numbers** - Search and manage phone numbers
@@ -197,6 +198,101 @@ const myNumbers = await voiceai.phoneNumbers.list();
 await voiceai.phoneNumbers.release('+14155551234');
 ```
 
+## Webhooks
+
+Configure webhooks to receive real-time notifications when call events occur.
+
+### Configure Webhook Events
+
+```typescript
+// Create agent with webhook events
+const agent = await voiceai.agents.create({
+  name: 'Support Agent',
+  config: {
+    prompt: 'You are a helpful support agent.',
+    webhooks: {
+      events: {
+        url: 'https://your-server.com/webhooks/voice-events',
+        secret: 'your-hmac-secret',  // Optional: for signature verification
+        events: ['call.started', 'call.completed'],  // Or omit for all events
+        timeout: 5,
+        enabled: true
+      }
+    }
+  }
+});
+
+// Update webhook config on existing agent
+await voiceai.agents.update(agentId, {
+  config: {
+    webhooks: {
+      events: {
+        url: 'https://your-server.com/webhooks',
+        events: ['call.completed'],  // Only receive call.completed
+        enabled: true
+      }
+    }
+  }
+});
+```
+
+### Event Types
+
+| Event | Description |
+|-------|-------------|
+| `call.started` | Call connected, agent ready |
+| `call.completed` | Call ended, includes transcript and usage data |
+
+### Webhook Payload
+
+Your server receives POST requests with this structure:
+
+```typescript
+interface WebhookEvent {
+  event: 'call.started' | 'call.completed' | 'test';
+  timestamp: string;  // ISO 8601
+  call_id: string;
+  agent_id: string;
+  data: {
+    call_type: 'web' | 'sip_inbound' | 'sip_outbound';
+    // call.started: started_at, from_number?, to_number?
+    // call.completed: duration_seconds, credits_used, transcript_uri, transcript_summary
+  };
+}
+```
+
+### Signature Verification
+
+If you configure a `secret`, verify the HMAC-SHA256 signature:
+
+```typescript
+import crypto from 'crypto';
+
+function verifyWebhook(body: string, headers: Headers, secret: string): boolean {
+  const signature = headers.get('x-webhook-signature');
+  const timestamp = headers.get('x-webhook-timestamp');
+  
+  if (!signature || !timestamp) return false;
+  
+  const message = `${timestamp}.${body}`;
+  const expected = crypto.createHmac('sha256', secret).update(message).digest('hex');
+  
+  return crypto.timingSafeEqual(Buffer.from(expected), Buffer.from(signature));
+}
+```
+
+### Webhook Types
+
+```typescript
+import type {
+  WebhookEventsConfig,
+  PublicWebhookEventsConfig,
+  WebhooksConfig,
+  WebhookEvent,
+  WebhookTestResponse,
+} from '@voice-ai-labs/web-sdk';
+```
+
 ## TypeScript
 
 Full TypeScript support with exported types:
@@ -207,6 +303,8 @@ import VoiceAI, {
   type TranscriptionSegment,
   type ConnectionStatus,
   type TTSParams,
+  type WebhookEventsConfig,
+  type WebhookEvent,
 } from '@voice-ai-labs/web-sdk';
 ```
 

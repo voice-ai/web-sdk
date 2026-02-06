@@ -1,6 +1,6 @@
-# Voice.AI Web SDK Development Guide
+# Voice.ai Web SDK Development Guide
 
-This document describes how to set up, build, and distribute the Voice.AI Web SDK.
+This document describes how to set up, build, and distribute the Voice.ai Web SDK.
 
 ## Prerequisites
 
