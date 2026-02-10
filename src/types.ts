@@ -39,6 +39,9 @@ export interface ConnectionOptions {
   audioOptions?: AudioCaptureOptions;
   /** Enable pre-connect audio buffering (default: true) - improves mobile timing */
   preConnectBuffer?: boolean;
+  /** Enable test mode to preview/test agents without deploying (default: false).
+   * When true, uses test-connection-details endpoint which allows testing paused agents. */
+  testMode?: boolean;
   [key: string]: any;
 }
 

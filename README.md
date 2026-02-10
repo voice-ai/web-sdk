@@ -50,6 +50,44 @@ await voiceai.connect({
 });
 ```
 
+### Error Handling
+
+The `connect()` method throws an `Error` if connection fails. Common error cases:
+
+```typescript
+try {
+  await voiceai.connect({ agentId: 'agent-123' });
+} catch (error) {
+  if (error.message.includes('insufficient_credits')) {
+    // User is out of credits
+    console.error('Out of credits. Please add more credits to continue.');
+  } else if (error.message.includes('Authentication failed')) {
+    // Invalid API key
+    console.error('Invalid API key');
+  } else if (error.message.includes('agent_not_deployed')) {
+    // Agent is paused or disabled
+    console.error('Agent is not deployed');
+  } else {
+    console.error('Connection failed:', error.message);
+  }
+}
+```
+
+Errors are also emitted via the `onError` handler and reflected in `onStatusChange`:
+
+```typescript
+voiceai.onError((error) => {
+  console.error('Error:', error.message);
+});
+
+voiceai.onStatusChange((status) => {
+  if (status.error) {
+    // status.error contains the error message string
+    console.error('Connection error:', status.error);
+  }
+});
+```
+
 ### Events
 
 ```typescript
@@ -285,8 +323,8 @@ function verifyWebhook(body: string, headers: Headers, secret: string): boolean 
 
 ```typescript
 import type {
+  WebhookEventType,
   WebhookEventsConfig,
-  PublicWebhookEventsConfig,
   WebhooksConfig,
   WebhookEvent,
   WebhookTestResponse,
