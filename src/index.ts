@@ -141,10 +141,15 @@ export class VoiceAI {
    * @param options - Connection options
    * @param options.agentId - ID of the agent to connect to
    * @param options.autoPublishMic - Auto-enable microphone (default: true)
+   * @param options.testMode - Test mode to preview paused/undeployed agents (default: false)
    * 
    * @example
    * ```typescript
+   * // Connect to a deployed agent
    * await voiceai.connect({ agentId: 'agent-123' });
+   * 
+   * // Test a paused agent before deploying
+   * await voiceai.connect({ agentId: 'agent-123', testMode: true });
    * ```
    */
   async connect(options: ConnectionOptions): Promise<void> {
@@ -399,7 +404,11 @@ export class VoiceAI {
 
   private async getConnectionDetails(options: ConnectionOptions): Promise<ConnectionDetails> {
     const url = options.apiUrl || this.apiUrl;
-    const endpoint = `${url}/connection/connection-details`;
+    // Use test-connection-details for testMode (allows testing paused/undeployed agents)
+    const endpointPath = options.testMode 
+      ? '/connection/test-connection-details' 
+      : '/connection/connection-details';
+    const endpoint = `${url}${endpointPath}`;
 
     const requestData: Record<string, any> = {};
     if (options.agentId) requestData.agent_id = options.agentId;
