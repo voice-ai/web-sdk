@@ -69,7 +69,7 @@ sdk-web/
 │   ├── index.ts              # Main VoiceAI class + exports
 │   ├── types.ts              # TypeScript interfaces
 │   ├── client/               # REST API clients
-│   │   ├── index.ts          # VoiceAIClient wrapper
+│   │   ├── index.ts          # Sub-client re-exports (agents, tts, etc.)
 │   │   ├── base.ts           # Base HTTP client
 │   │   ├── agents.ts         # Agent API
 │   │   ├── analytics.ts      # Analytics API

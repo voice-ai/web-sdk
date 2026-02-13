@@ -22,10 +22,12 @@
  */
 
 import { Room, RoomEvent, createLocalAudioTrack, Track, RemoteParticipant } from 'livekit-client';
+import { VoiceAIError } from './client/base';
 import { AgentClient } from './client/agents';
 import { AnalyticsClient } from './client/analytics';
 import { KnowledgeBaseClient } from './client/knowledge-base';
 import { PhoneNumberClient } from './client/phone-numbers';
+import { TTSClient } from './client/tts';
 import type {
   ConnectionOptions,
   ConnectionDetails,
@@ -77,17 +79,40 @@ export class VoiceAI {
   // API CLIENTS (REST API)
   // ==========================================================================
   
-  /** Agent management - create, update, deploy, pause, delete agents */
-  public readonly agents: AgentClient;
+  /** Agent management - create, update, deploy, pause, delete agents. */
+  public get agents(): AgentClient {
+    if (!this._agents) throw new VoiceAIError('API key required for agents API. Pass apiKey in the constructor.');
+    return this._agents;
+  }
+  private _agents?: AgentClient;
   
-  /** Analytics - call history, transcripts, stats */
-  public readonly analytics: AnalyticsClient;
+  /** Analytics - call history, transcripts, stats. */
+  public get analytics(): AnalyticsClient {
+    if (!this._analytics) throw new VoiceAIError('API key required for analytics API. Pass apiKey in the constructor.');
+    return this._analytics;
+  }
+  private _analytics?: AnalyticsClient;
   
-  /** Knowledge Base - manage RAG documents */
-  public readonly knowledgeBase: KnowledgeBaseClient;
+  /** Knowledge Base - manage RAG documents. */
+  public get knowledgeBase(): KnowledgeBaseClient {
+    if (!this._knowledgeBase) throw new VoiceAIError('API key required for knowledgeBase API. Pass apiKey in the constructor.');
+    return this._knowledgeBase;
+  }
+  private _knowledgeBase?: KnowledgeBaseClient;
   
-  /** Phone Numbers - search, select, release phone numbers */
-  public readonly phoneNumbers: PhoneNumberClient;
+  /** Phone Numbers - search, select, release phone numbers. */
+  public get phoneNumbers(): PhoneNumberClient {
+    if (!this._phoneNumbers) throw new VoiceAIError('API key required for phoneNumbers API. Pass apiKey in the constructor.');
+    return this._phoneNumbers;
+  }
+  private _phoneNumbers?: PhoneNumberClient;
+  
+  /** Text-to-Speech - generate speech, manage voices, clone voices. */
+  public get tts(): TTSClient {
+    if (!this._tts) throw new VoiceAIError('API key required for tts API. Pass apiKey in the constructor.');
+    return this._tts;
+  }
+  private _tts?: TTSClient;
 
   // ==========================================================================
   // PRIVATE STATE (Real-time voice)
@@ -103,6 +128,7 @@ export class VoiceAI {
   private microphoneStateHandlers: Set<MicrophoneStateHandler> = new Set();
   private apiUrl: string;
   private apiKey: string;
+  private effectiveApiKey: string = '';
   private cachedConnectionDetails: ConnectionDetails | null = null;
   private currentAgentState: AgentState = 'disconnected';
   private agentParticipantId: string | null = null;
@@ -111,24 +137,23 @@ export class VoiceAI {
   /**
    * Create a new VoiceAI client
    * 
-   * @param config - Configuration options
-   * @param config.apiKey - Your Voice.ai API key (required)
+   * @param config - Configuration options (optional for frontend-only usage)
+   * @param config.apiKey - Your Voice.ai API key (required for API operations and `getConnectionDetails`)
    * @param config.apiUrl - Custom API URL (optional, defaults to production)
    */
-  constructor(config: VoiceAIConfig) {
-    if (!config.apiKey) {
-      throw new Error('API key is required. Get one at https://voice.ai');
-    }
-
-    this.apiKey = config.apiKey;
+  constructor(config: VoiceAIConfig = {}) {
+    this.apiKey = config.apiKey || '';
     this.apiUrl = config.apiUrl || DEFAULT_API_URL;
 
-    // Initialize API clients
-    const clientConfig = { apiKey: this.apiKey, apiUrl: this.apiUrl };
-    this.agents = new AgentClient(clientConfig);
-    this.analytics = new AnalyticsClient(clientConfig);
-    this.knowledgeBase = new KnowledgeBaseClient(clientConfig);
-    this.phoneNumbers = new PhoneNumberClient(clientConfig);
+    // Initialize API clients when apiKey is provided
+    if (this.apiKey) {
+      const clientConfig = { apiKey: this.apiKey, apiUrl: this.apiUrl };
+      this._agents = new AgentClient(clientConfig);
+      this._analytics = new AnalyticsClient(clientConfig);
+      this._knowledgeBase = new KnowledgeBaseClient(clientConfig);
+      this._phoneNumbers = new PhoneNumberClient(clientConfig);
+      this._tts = new TTSClient(clientConfig);
+    }
   }
 
   // ==========================================================================
@@ -136,20 +161,112 @@ export class VoiceAI {
   // ==========================================================================
 
   /**
-   * Connect to a voice agent for real-time conversation
+   * Get connection details for a voice agent.
    * 
-   * @param options - Connection options
-   * @param options.agentId - ID of the agent to connect to
-   * @param options.autoPublishMic - Auto-enable microphone (default: true)
-   * @param options.testMode - Test mode to preview paused/undeployed agents (default: false)
+   * Requires an API key. Call this from your backend, then pass the result
+   * to `connectRoom()` on the frontend.
+   * 
+   * @param options - Connection options (agentId, testMode, etc.)
+   * @returns Connection details (serverUrl, participantToken, callId)
    * 
    * @example
    * ```typescript
-   * // Connect to a deployed agent
-   * await voiceai.connect({ agentId: 'agent-123' });
+   * // Server-side: get connection details
+   * const details = await voiceai.getConnectionDetails({ agentId: 'agent-123' });
+   * // Return details to frontend...
    * 
-   * // Test a paused agent before deploying
-   * await voiceai.connect({ agentId: 'agent-123', testMode: true });
+   * // With test mode
+   * const details = await voiceai.getConnectionDetails({ 
+   *   agentId: 'agent-123', 
+   *   testMode: true 
+   * });
+   * ```
+   */
+  async getConnectionDetails(options: ConnectionOptions): Promise<ConnectionDetails> {
+    return this.fetchConnectionDetails(options);
+  }
+
+  /**
+   * Connect to a LiveKit room using pre-fetched connection details.
+   * 
+   * This is the browser-safe method -- it only needs a room token,
+   * no API key required. Get the connection details from your backend
+   * using `getConnectionDetails()`.
+   * 
+   * @param connectionDetails - Server URL, participant token, and call ID from your backend
+   * @param options - Audio/microphone options
+   * 
+   * @example
+   * ```typescript
+   * // Frontend: connect using token from your backend
+   * const voiceai = new VoiceAI();
+   * await voiceai.connectRoom(
+   *   { serverUrl, participantToken, callId },
+   *   { autoPublishMic: true }
+   * );
+   * ```
+   */
+  async connectRoom(
+    connectionDetails: ConnectionDetails,
+    options: Pick<ConnectionOptions, 'autoPublishMic' | 'audioOptions' | 'preConnectBuffer'> = {}
+  ): Promise<void> {
+    if (this.connectionStatus.connecting || this.connectionStatus.connected) {
+      throw new Error('Already connected or connecting');
+    }
+
+    this.updateStatus({ connecting: true, connected: false });
+    this.cachedConnectionDetails = connectionDetails;
+
+    try {
+      this.room = new Room();
+      this.setupRoomListeners();
+      this.room.prepareConnection(connectionDetails.serverUrl, connectionDetails.participantToken);
+
+      const preConnectBuffer = options.preConnectBuffer !== false;
+
+      let connected = false;
+      let lastError: unknown;
+      
+      for (let attempt = 1; attempt <= 3; attempt++) {
+        try {
+          await Promise.all([
+            this.setupAudio(options as ConnectionOptions, preConnectBuffer),
+            this.room.connect(connectionDetails.serverUrl, connectionDetails.participantToken)
+          ]);
+          connected = true;
+          break;
+        } catch (error) {
+          lastError = error;
+          if (attempt < 3) {
+            await new Promise(resolve => setTimeout(resolve, 1000 * attempt));
+          }
+        }
+      }
+
+      if (!connected) {
+        throw lastError || new Error('Failed to connect after 3 attempts');
+      }
+
+      this.updateStatus({ connected: true, connecting: false, callId: connectionDetails.callId });
+
+    } catch (error) {
+      const err = error instanceof Error ? error : new Error(String(error));
+      this.updateStatus({ connected: false, connecting: false, error: err.message });
+      this.emitError(err);
+      throw err;
+    }
+  }
+
+  /**
+   * Connect to a voice agent for real-time conversation.
+   * 
+   * Convenience method that combines `getConnectionDetails()` + `connectRoom()`.
+   * 
+   * @param options - Connection options
+   * 
+   * @example
+   * ```typescript
+   * await voiceai.connect({ agentId: 'agent-123' });
    * ```
    */
   async connect(options: ConnectionOptions): Promise<void> {
@@ -160,7 +277,7 @@ export class VoiceAI {
     this.updateStatus({ connecting: true, connected: false });
 
     try {
-      // Get connection details from API
+      // Get connection details via the appropriate method
       const connectionDetails = await this.getOrRefreshConnectionDetails(options);
       
       // Create room instance
@@ -207,12 +324,18 @@ export class VoiceAI {
   }
 
   /**
-   * Disconnect from the voice agent and end the call
+   * Disconnect from the room and end the call.
+   * 
+   * Signals the server to free the concurrency slot using endToken from
+   * connection details. Connection details always include end_token when
+   * fetched from the API; backends must pass it when using pre-fetched details.
+   * If no endToken, the server detects room disconnect as fallback.
    */
   async disconnect(): Promise<void> {
     this.stopAudioLevelMonitoring();
     
     const callId = this.cachedConnectionDetails?.callId;
+    const endToken = this.cachedConnectionDetails?.endToken;
     
     if (this.room) {
       try {
@@ -223,22 +346,28 @@ export class VoiceAI {
       this.room = null;
     }
     
-    // End call via API
-    if (callId) {
+    // Signal server to free concurrency slot (endToken only - API always returns it)
+    if (callId && endToken) {
       try {
-        await fetch(`${this.apiUrl}/calls/${encodeURIComponent(callId)}/end`, {
+        const response = await fetch(`${this.apiUrl}/calls/${encodeURIComponent(callId)}/end`, {
           method: 'POST',
           headers: {
             'Content-Type': 'application/json',
-            'Authorization': `Bearer ${this.apiKey}`
+            'Authorization': `Bearer ${endToken}`
           }
         });
-      } catch {
-        // Non-critical
+        if (!response.ok) {
+          console.warn(`[VoiceAI] Failed to end call ${callId}: ${response.status} ${response.statusText}`);
+        }
+      } catch (err) {
+        console.warn(`[VoiceAI] Failed to end call ${callId}:`, err);
       }
+    } else if (callId && !endToken) {
+      console.warn(`[VoiceAI] No endToken in connection details - pass end_token from your backend to enable immediate teardown`);
     }
     
     this.cachedConnectionDetails = null;
+    this.effectiveApiKey = '';
     this.agentParticipantId = null;
     this.updateAgentState('disconnected');
     this.updateStatus({ connected: false, connecting: false });
@@ -393,16 +522,53 @@ export class VoiceAI {
   }
 
   private async getOrRefreshConnectionDetails(options: ConnectionOptions): Promise<ConnectionDetails> {
+    // Mode 1: Pre-fetched connection details provided directly
+    if (options.serverUrl && options.participantToken) {
+      const details: ConnectionDetails = {
+        serverUrl: options.serverUrl,
+        participantToken: options.participantToken,
+        callId: options.callId || '',
+        endToken: options.endToken,
+      };
+      this.cachedConnectionDetails = details;
+      return details;
+    }
+
+    // Use cached details if still valid
     if (this.cachedConnectionDetails && !this.isTokenExpired(this.cachedConnectionDetails.participantToken)) {
       return this.cachedConnectionDetails;
     }
     
-    const connectionDetails = await this.getConnectionDetails(options);
+    // Mode 2: Direct API call with API key (constructor or per-call)
+    if (!this.apiKey && !options.apiKey) {
+      throw new Error(
+        'No authentication method configured. Use one of:\n' +
+        '1. connectRoom() with pre-fetched details from your backend\n' +
+        '2. API key: new VoiceAI({ apiKey: "vk_..." }) or connect({ apiKey: "vk_..." })'
+      );
+    }
+
+    const connectionDetails = await this.fetchConnectionDetails(options);
     this.cachedConnectionDetails = connectionDetails;
     return connectionDetails;
   }
 
-  private async getConnectionDetails(options: ConnectionOptions): Promise<ConnectionDetails> {
+  /**
+   * Fetch connection details from the developer's backend endpoint.
+   * The backend holds the API key and calls the Voice.AI API server-side.
+   */
+  /**
+   * Fetch connection details using the API key directly.
+   * Used by the public getConnectionDetails() method.
+   */
+  private async fetchConnectionDetails(options: ConnectionOptions): Promise<ConnectionDetails> {
+    if (!this.apiKey && !options.apiKey) {
+      throw new Error('API key is required for getConnectionDetails(). Pass { apiKey: "vk_..." } to the constructor or options.');
+    }
+    return this.fetchConnectionDetailsFromApi(options);
+  }
+
+  private async fetchConnectionDetailsFromApi(options: ConnectionOptions): Promise<ConnectionDetails> {
     const url = options.apiUrl || this.apiUrl;
     // Use test-connection-details for testMode (allows testing paused/undeployed agents)
     const endpointPath = options.testMode 
@@ -424,6 +590,7 @@ export class VoiceAI {
     }
 
     const apiKey = options.apiKey || this.apiKey;
+    this.effectiveApiKey = apiKey;
     const response = await fetch(endpoint, {
       method: 'POST',
       headers: {
@@ -456,7 +623,8 @@ export class VoiceAI {
     return {
       serverUrl: data.server_url,
       participantToken: data.participant_token,
-      callId: data.call_id
+      callId: data.call_id,
+      endToken: data.end_token,
     };
   }
 
@@ -723,83 +891,22 @@ export { VoiceAIError } from './client/base';
 // TYPE EXPORTS
 // =============================================================================
 
+// Re-export only types that users interact with directly.
+// Method parameter and return types are inferred by TypeScript --
+// users don't need to import CreateAgentRequest, PaginatedAgentResponse, etc.
 export type {
-  // Config
   VoiceAIConfig,
-  
-  // Connection types
   ConnectionOptions,
   ConnectionDetails,
   ConnectionStatus,
-  
-  // Transcription
   TranscriptionSegment,
-  TranscriptionHandler,
-  
-  // Event handlers
-  ConnectionStatusHandler,
-  ErrorHandler,
-  AgentStateHandler,
-  AudioLevelHandler,
-  MicrophoneStateHandler,
-  
-  // State types
   AgentState,
   AgentStateInfo,
   AudioLevelInfo,
   MicrophoneState,
-  AudioCaptureOptions,
-  
-  // Agent types
-  TTSParams,
-  MCPServerConfig,
-  AgentConfig,
   Agent,
-  CreateAgentRequest,
-  UpdateAgentRequest,
-  AgentDeployResponse,
-  AgentPauseResponse,
-  AgentDeleteResponse,
-  AgentConnectionStatusResponse,
-  InitAgentRequest,
-  InitAgentResponse,
-  PaginatedAgentResponse,
-  ListAgentsOptions,
-  
-  // Webhook types
-  WebhookEventType,
-  WebhookEventsConfig,
-  WebhooksConfig,
-  WebhookEvent,
-  WebhookTestResponse,
-  
-  // Analytics types
-  CallHistoryItem,
-  PaginatedCallHistoryResponse,
-  GetCallHistoryOptions,
-  TranscriptResponse,
-  
-  // Knowledge Base types
-  KnowledgeBaseDocument,
-  CreateKnowledgeBaseRequest,
-  UpdateKnowledgeBaseRequest,
-  KnowledgeBaseResponse,
-  KnowledgeBaseWithDocuments,
-  PaginatedKnowledgeBaseResponse,
-  
-  // Phone Number types
-  PhoneNumberInfo,
-  AvailablePhoneNumber,
-  SearchPhoneNumbersRequest,
-  SearchPhoneNumbersResponse,
-  PurchasePhoneNumberRequest,
-  PurchasePhoneNumberResponse,
-  AllPhoneNumbersResponse,
-  
-  // Common types
-  PaginationMeta,
-  PaginationOptions,
-  ErrorResponse,
+  VoiceResponse,
+  VoiceStatus,
 } from './types';
 
 // =============================================================================

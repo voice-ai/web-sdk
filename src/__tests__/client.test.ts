@@ -1,36 +1,34 @@
 import { describe, it, expect, beforeEach, vi, Mock } from 'vitest';
-import { VoiceAIClient, VoiceAIError } from '../client';
+import VoiceAI from '../index';
+import { VoiceAIError } from '../client';
 
-describe('VoiceAIClient', () => {
+describe('VoiceAI REST API (agents, analytics, tts, etc.)', () => {
   beforeEach(() => {
     vi.clearAllMocks();
     (global.fetch as Mock).mockClear();
   });
 
-  describe('constructor', () => {
-    it('should throw error if API key is not provided', () => {
-      expect(() => new VoiceAIClient({ apiKey: '' })).toThrow('API key is required');
-    });
-
+  describe('REST sub-clients', () => {
     it('should create client with API key', () => {
-      const client = new VoiceAIClient({ apiKey: 'vk_test_key' });
-      expect(client).toBeInstanceOf(VoiceAIClient);
+      const client = new VoiceAI({ apiKey: 'vk_test_key' });
+      expect(client).toBeInstanceOf(VoiceAI);
     });
 
-    it('should have all sub-clients', () => {
-      const client = new VoiceAIClient({ apiKey: 'vk_test_key' });
+    it('should have all REST sub-clients when API key provided', () => {
+      const client = new VoiceAI({ apiKey: 'vk_test_key' });
       expect(client.agents).toBeDefined();
       expect(client.analytics).toBeDefined();
       expect(client.knowledgeBase).toBeDefined();
       expect(client.phoneNumbers).toBeDefined();
+      expect(client.tts).toBeDefined();
     });
   });
 
   describe('AgentClient', () => {
-    let client: VoiceAIClient;
+    let client: VoiceAI;
 
     beforeEach(() => {
-      client = new VoiceAIClient({ apiKey: 'vk_test_key' });
+      client = new VoiceAI({ apiKey: 'vk_test_key' });
     });
 
     it('should list agents', async () => {
@@ -185,10 +183,10 @@ describe('VoiceAIClient', () => {
   });
 
   describe('AnalyticsClient', () => {
-    let client: VoiceAIClient;
+    let client: VoiceAI;
 
     beforeEach(() => {
-      client = new VoiceAIClient({ apiKey: 'vk_test_key' });
+      client = new VoiceAI({ apiKey: 'vk_test_key' });
     });
 
     it('should get call history', async () => {
@@ -241,10 +239,10 @@ describe('VoiceAIClient', () => {
   });
 
   describe('KnowledgeBaseClient', () => {
-    let client: VoiceAIClient;
+    let client: VoiceAI;
 
     beforeEach(() => {
-      client = new VoiceAIClient({ apiKey: 'vk_test_key' });
+      client = new VoiceAI({ apiKey: 'vk_test_key' });
     });
 
     it('should list knowledge bases', async () => {
@@ -316,10 +314,10 @@ describe('VoiceAIClient', () => {
   });
 
   describe('PhoneNumberClient', () => {
-    let client: VoiceAIClient;
+    let client: VoiceAI;
 
     beforeEach(() => {
-      client = new VoiceAIClient({ apiKey: 'vk_test_key' });
+      client = new VoiceAI({ apiKey: 'vk_test_key' });
     });
 
     it('should list phone numbers', async () => {
@@ -388,10 +386,10 @@ describe('VoiceAIClient', () => {
   });
 
   describe('request and response serialization', () => {
-    let client: VoiceAIClient;
+    let client: VoiceAI;
 
     beforeEach(() => {
-      client = new VoiceAIClient({ apiKey: 'vk_test_key' });
+      client = new VoiceAI({ apiKey: 'vk_test_key' });
     });
 
     it('should send all fields in CreateAgentRequest to the API', async () => {
@@ -523,11 +521,210 @@ describe('VoiceAIClient', () => {
     });
   });
 
-  describe('Error handling', () => {
-    let client: VoiceAIClient;
+  describe('TTSClient', () => {
+    let client: VoiceAI;
 
     beforeEach(() => {
-      client = new VoiceAIClient({ apiKey: 'vk_test_key' });
+      client = new VoiceAI({ apiKey: 'vk_test_key' });
+    });
+
+    it('should have tts sub-client', () => {
+      expect(client.tts).toBeDefined();
+    });
+
+    it('should list voices', async () => {
+      const mockVoices = [
+        { voice_id: 'voice-1', status: 'AVAILABLE', name: 'Default Voice', voice_visibility: 'PUBLIC' },
+        { voice_id: 'voice-2', status: 'AVAILABLE', name: 'My Voice', voice_visibility: 'PRIVATE' },
+      ];
+      (global.fetch as Mock).mockResolvedValueOnce({
+        ok: true,
+        headers: new Headers({ 'content-type': 'application/json' }),
+        json: async () => mockVoices,
+      });
+
+      const result = await client.tts.listVoices();
+
+      expect(result).toEqual(mockVoices);
+      expect(result.length).toBe(2);
+      expect(global.fetch).toHaveBeenCalledWith(
+        'https://dev.voice.ai/api/v1/tts/voices',
+        expect.objectContaining({ method: 'GET' })
+      );
+    });
+
+    it('should get voice by ID', async () => {
+      const mockVoice = { voice_id: 'voice-123', status: 'AVAILABLE', name: 'Test Voice', voice_visibility: 'PUBLIC' };
+      (global.fetch as Mock).mockResolvedValueOnce({
+        ok: true,
+        headers: new Headers({ 'content-type': 'application/json' }),
+        json: async () => mockVoice,
+      });
+
+      const result = await client.tts.getVoice('voice-123');
+
+      expect(result.voice_id).toBe('voice-123');
+      expect(result.status).toBe('AVAILABLE');
+      expect(global.fetch).toHaveBeenCalledWith(
+        'https://dev.voice.ai/api/v1/tts/voice/voice-123',
+        expect.objectContaining({ method: 'GET' })
+      );
+    });
+
+    it('should clone voice with file upload', async () => {
+      const mockResponse = { voice_id: 'new-voice-id', status: 'PENDING' };
+      (global.fetch as Mock).mockResolvedValueOnce({
+        ok: true,
+        headers: new Headers({ 'content-type': 'application/json' }),
+        json: async () => mockResponse,
+      });
+
+      const file = new Blob(['fake audio data'], { type: 'audio/mp3' });
+      const result = await client.tts.cloneVoice({
+        file,
+        name: 'My Cloned Voice',
+        language: 'en',
+        voice_visibility: 'PRIVATE',
+      });
+
+      expect(result.voice_id).toBe('new-voice-id');
+      expect(result.status).toBe('PENDING');
+      
+      // Verify FormData was used (no Content-Type header - browser sets it)
+      const fetchCall = (global.fetch as Mock).mock.calls[0];
+      expect(fetchCall[0]).toBe('https://dev.voice.ai/api/v1/tts/clone-voice');
+      expect(fetchCall[1].method).toBe('POST');
+      expect(fetchCall[1].body).toBeInstanceOf(FormData);
+    });
+
+    it('should update voice metadata', async () => {
+      const mockVoice = { voice_id: 'voice-123', status: 'AVAILABLE', name: 'Updated Name', voice_visibility: 'PRIVATE' };
+      (global.fetch as Mock).mockResolvedValueOnce({
+        ok: true,
+        headers: new Headers({ 'content-type': 'application/json' }),
+        json: async () => mockVoice,
+      });
+
+      const result = await client.tts.updateVoice('voice-123', {
+        name: 'Updated Name',
+        voice_visibility: 'PRIVATE',
+      });
+
+      expect(result.name).toBe('Updated Name');
+      expect(result.voice_visibility).toBe('PRIVATE');
+      expect(global.fetch).toHaveBeenCalledWith(
+        'https://dev.voice.ai/api/v1/tts/voice/voice-123',
+        expect.objectContaining({
+          method: 'PATCH',
+          body: JSON.stringify({ name: 'Updated Name', voice_visibility: 'PRIVATE' }),
+        })
+      );
+    });
+
+    it('should delete voice', async () => {
+      const mockResponse = { status: 'deleted', voice_id: 'voice-123' };
+      (global.fetch as Mock).mockResolvedValueOnce({
+        ok: true,
+        headers: new Headers({ 'content-type': 'application/json' }),
+        json: async () => mockResponse,
+      });
+
+      const result = await client.tts.deleteVoice('voice-123');
+
+      expect(result.status).toBe('deleted');
+      expect(result.voice_id).toBe('voice-123');
+      expect(global.fetch).toHaveBeenCalledWith(
+        'https://dev.voice.ai/api/v1/tts/voice/voice-123',
+        expect.objectContaining({ method: 'DELETE' })
+      );
+    });
+
+    it('should synthesize speech and return blob', async () => {
+      const mockBlob = new Blob(['fake audio'], { type: 'audio/mpeg' });
+      (global.fetch as Mock).mockResolvedValueOnce({
+        ok: true,
+        blob: async () => mockBlob,
+      });
+
+      const result = await client.tts.synthesize({
+        text: 'Hello world',
+        voice_id: 'voice-123',
+        language: 'en',
+        audio_format: 'mp3',
+      });
+
+      expect(result).toBeInstanceOf(Blob);
+      expect(global.fetch).toHaveBeenCalledWith(
+        'https://dev.voice.ai/api/v1/tts/speech',
+        expect.objectContaining({
+          method: 'POST',
+          body: JSON.stringify({
+            text: 'Hello world',
+            voice_id: 'voice-123',
+            language: 'en',
+            audio_format: 'mp3',
+          }),
+        })
+      );
+    });
+
+    it('should synthesize speech stream and return response', async () => {
+      const mockResponse = {
+        ok: true,
+        body: 'mock-readable-stream',
+      };
+      (global.fetch as Mock).mockResolvedValueOnce(mockResponse);
+
+      const result = await client.tts.synthesizeStream({
+        text: 'Hello world',
+        voice_id: 'voice-123',
+        language: 'en',
+      });
+
+      expect(result).toBe(mockResponse);
+      expect(global.fetch).toHaveBeenCalledWith(
+        'https://dev.voice.ai/api/v1/tts/speech/stream',
+        expect.objectContaining({
+          method: 'POST',
+          body: JSON.stringify({
+            text: 'Hello world',
+            voice_id: 'voice-123',
+            language: 'en',
+          }),
+        })
+      );
+    });
+
+    it('should throw VoiceAIError on synthesize failure', async () => {
+      (global.fetch as Mock).mockResolvedValueOnce({
+        ok: false,
+        status: 400,
+        json: async () => ({ error: 'Text is too long' }),
+      });
+
+      await expect(client.tts.synthesize({
+        text: 'x'.repeat(100000),
+        voice_id: 'voice-123',
+      })).rejects.toThrow('Text is too long');
+    });
+
+    it('should throw VoiceAIError when voice not found', async () => {
+      (global.fetch as Mock).mockResolvedValueOnce({
+        ok: false,
+        status: 404,
+        headers: new Headers({ 'content-type': 'application/json' }),
+        json: async () => ({ detail: 'Voice not found' }),
+      });
+
+      await expect(client.tts.getVoice('nonexistent')).rejects.toThrow('Voice not found');
+    });
+  });
+
+  describe('Error handling', () => {
+    let client: VoiceAI;
+
+    beforeEach(() => {
+      client = new VoiceAI({ apiKey: 'vk_test_key' });
     });
 
     it('should throw VoiceAIError on 401', async () => {

@@ -18,6 +18,9 @@ export interface ConnectionDetails {
   serverUrl: string;
   participantToken: string;
   callId: string;
+  /** Token scoped to ending this specific call. Used by disconnect()
+   * to immediately free the concurrency slot without needing an API key. */
+  endToken?: string;
 }
 
 export interface ConnectionOptions {
@@ -42,6 +45,20 @@ export interface ConnectionOptions {
   /** Enable test mode to preview/test agents without deploying (default: false).
    * When true, uses test-connection-details endpoint which allows testing paused agents. */
   testMode?: boolean;
+  
+  // ---- Pre-fetched connection details (for frontend-safe usage) ----
+  
+  /** Pre-fetched LiveKit server URL (from your backend). 
+   * When provided along with participantToken, the SDK connects directly
+   * without calling the Voice.AI API, so no API key is needed in the browser. */
+  serverUrl?: string;
+  /** Pre-fetched LiveKit participant token (from your backend) */
+  participantToken?: string;
+  /** Pre-fetched call ID (from your backend) */
+  callId?: string;
+  /** Pre-fetched end token (from your backend, for ending the call without API key) */
+  endToken?: string;
+  
   [key: string]: any;
 }
 
@@ -339,7 +356,7 @@ export interface AgentPauseResponse {
   [key: string]: any;
 }
 
-/** Response from deleting/disabling an agent */
+/** Response from deleting an agent */
 export interface AgentDeleteResponse {
   agent: Agent;
   message?: string | null;
@@ -575,6 +592,111 @@ export interface PaginatedAllPhoneNumbersResponse {
 }
 
 // =============================================================================
+// TTS TYPES
+// =============================================================================
+
+/** Audio format for TTS output */
+export type TTSAudioFormat =
+  | 'mp3'
+  | 'wav'
+  | 'pcm'
+  | 'alaw_8000'
+  | 'mp3_22050_32'
+  | 'mp3_24000_48'
+  | 'mp3_44100_32'
+  | 'mp3_44100_64'
+  | 'mp3_44100_96'
+  | 'mp3_44100_128'
+  | 'mp3_44100_192'
+  | 'opus_48000_32'
+  | 'opus_48000_64'
+  | 'opus_48000_96'
+  | 'opus_48000_128'
+  | 'opus_48000_192'
+  | 'pcm_8000'
+  | 'pcm_16000'
+  | 'pcm_22050'
+  | 'pcm_24000'
+  | 'pcm_32000'
+  | 'pcm_44100'
+  | 'pcm_48000'
+  | 'ulaw_8000'
+  | 'wav_16000'
+  | 'wav_22050'
+  | 'wav_24000';
+
+/** Voice visibility setting */
+export type VoiceVisibility = 'PUBLIC' | 'PRIVATE';
+
+/** Voice processing status */
+export type VoiceStatus = 'PENDING' | 'PROCESSING' | 'AVAILABLE' | 'FAILED';
+
+/** Request to generate speech from text */
+export interface SynthesizeRequest {
+  /** Text to generate speech for (required) */
+  text: string;
+  /** Voice ID to use. If omitted, the default built-in voice is used. */
+  voice_id?: string | null;
+  /** Audio output format (default: 'mp3') */
+  audio_format?: TTSAudioFormat;
+  /** Generation temperature 0.0-2.0 (default: 1.0) */
+  temperature?: number;
+  /** Top-p sampling parameter 0.0-1.0 (default: 0.8) */
+  top_p?: number;
+  /** TTS model to use. If not provided, automatically selected based on language. */
+  model?: string | null;
+  /** Language code in ISO 639-1 format, e.g. 'en', 'es', 'fr' (default: 'en') */
+  language?: string;
+  [key: string]: any;
+}
+
+/** Options for cloning a voice from audio */
+export interface CloneVoiceOptions {
+  /** Audio file (MP3, WAV, or OGG format, max 7.5MB) */
+  file: Blob | File;
+  /** Name for the voice (optional) */
+  name?: string;
+  /** Voice visibility: PUBLIC or PRIVATE (default: PUBLIC) */
+  voice_visibility?: VoiceVisibility;
+  /** Language code in ISO 639-1 format (default: 'en') */
+  language?: string;
+}
+
+/** Response from cloning a voice */
+export interface CloneVoiceResponse {
+  /** The created voice ID */
+  voice_id: string;
+  /** Voice processing status: PENDING, PROCESSING, AVAILABLE, or FAILED */
+  status: VoiceStatus;
+}
+
+/** Voice status/details response */
+export interface VoiceResponse {
+  /** The voice ID */
+  voice_id: string;
+  /** Voice processing status */
+  status: VoiceStatus;
+  /** User-provided voice name */
+  name?: string | null;
+  /** Voice visibility: PUBLIC or PRIVATE */
+  voice_visibility?: VoiceVisibility | null;
+}
+
+/** Request to update voice metadata */
+export interface UpdateVoiceOptions {
+  /** New voice name */
+  name?: string | null;
+  /** New visibility: PUBLIC or PRIVATE */
+  voice_visibility?: VoiceVisibility | null;
+}
+
+/** Response from deleting a voice */
+export interface DeleteVoiceResponse {
+  status: string;
+  voice_id: string;
+}
+
+// =============================================================================
 // CONNECTION DETAILS TYPES
 // =============================================================================
 
@@ -610,8 +732,10 @@ export interface EndCallResponse {
 
 /** Configuration for VoiceAI SDK */
 export interface VoiceAIConfig {
-  /** API key for authentication (required) */
-  apiKey: string;
+  /** API key for authentication.
+   * Required for API operations (agents, tts, analytics, etc.) and `getConnectionDetails()`.
+   * Not needed when using `connectRoom()` with pre-fetched connection details. */
+  apiKey?: string;
   /** API base URL (optional, defaults to production) */
   apiUrl?: string;
 }

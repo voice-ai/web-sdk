@@ -135,6 +135,6 @@ export class KnowledgeBaseClient extends BaseClient {
    * ```
    */
   async remove(kbId: number): Promise<void> {
-    await super.delete<void>(`/knowledge-base/${kbId}`);
+    await this.httpDelete<void>(`/knowledge-base/${kbId}`);
   }
 }
