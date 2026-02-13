@@ -161,24 +161,26 @@ export class AgentClient extends BaseClient {
   }
 
   /**
-   * Delete/disable an agent
+   * Delete an agent
    * 
    * An agent must be paused before being deleted.
-   * Disabled agents will be automatically deleted after a grace period.
    * 
    * @param agentId - The agent ID to delete
    * @returns Delete response
    * 
    * @example
    * ```typescript
-   * // First pause, then delete
    * await client.agents.pause('agent-123');
-   * const result = await client.agents.disable('agent-123');
-   * console.log('Deleted:', result.message);
+   * await client.agents.disable('agent-123');
    * ```
    */
   async disable(agentId: string): Promise<AgentDeleteResponse> {
     return this.post<AgentDeleteResponse>(`/agent/${encodeURIComponent(agentId)}/disable`);
+  }
+
+  /** Alias for {@link disable} */
+  async delete(agentId: string): Promise<AgentDeleteResponse> {
+    return this.disable(agentId);
   }
 
   /**
@@ -253,6 +255,6 @@ export class AgentClient extends BaseClient {
    * ```
    */
   async unassignKnowledgeBase(agentId: string): Promise<void> {
-    await this.delete<void>(`/agent/${encodeURIComponent(agentId)}/knowledge-base`);
+    await this.httpDelete<void>(`/agent/${encodeURIComponent(agentId)}/knowledge-base`);
   }
 }

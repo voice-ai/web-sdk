@@ -59,8 +59,14 @@ describe('VoiceAI', () => {
   });
 
   describe('constructor', () => {
-    it('should throw error if no API key provided', () => {
-      expect(() => new VoiceAI({} as any)).toThrow('API key is required');
+    it('should initialize without any config (frontend mode)', () => {
+      const sdk = new VoiceAI();
+      expect(sdk).toBeInstanceOf(VoiceAI);
+    });
+
+    it('should initialize with empty config (frontend mode)', () => {
+      const sdk = new VoiceAI({});
+      expect(sdk).toBeInstanceOf(VoiceAI);
     });
 
     it('should initialize with API key', () => {
@@ -74,6 +80,22 @@ describe('VoiceAI', () => {
         apiUrl: 'https://api.example.com/api/v1',
       });
       expect(sdk).toBeInstanceOf(VoiceAI);
+    });
+
+    it('should have API clients when API key is provided', () => {
+      const sdk = new VoiceAI({ apiKey: 'vk_test_key' });
+      expect(sdk.agents).toBeDefined();
+      expect(sdk.analytics).toBeDefined();
+      expect(sdk.knowledgeBase).toBeDefined();
+      expect(sdk.phoneNumbers).toBeDefined();
+      expect(sdk.tts).toBeDefined();
+    });
+
+    it('should throw when accessing API clients without API key', () => {
+      const sdk = new VoiceAI();
+      expect(() => sdk.agents).toThrow('API key required');
+      expect(() => sdk.analytics).toThrow('API key required');
+      expect(() => sdk.tts).toThrow('API key required');
     });
   });
 
@@ -305,6 +327,99 @@ describe('VoiceAI', () => {
       const Room = (await import('livekit-client')).Room;
       const mockRoom = (Room as any).mock.results[0].value;
       expect(mockRoom.localParticipant.sendText).toHaveBeenCalledWith('Hello agent', { topic: 'lk.chat' });
+    });
+  });
+
+  describe('connectRoom (browser-safe, no API key)', () => {
+    it('should connect directly with pre-fetched connection details', async () => {
+      const sdk = new VoiceAI(); // No API key
+
+      await sdk.connectRoom({
+        serverUrl: 'wss://livekit.example.com',
+        participantToken: 'eyJhbGciOiJIUzI1NiJ9.eyJleHAiOjk5OTk5OTk5OTl9.test',
+        callId: 'call-abc-123',
+      });
+
+      // Should NOT have called fetch (no API request needed)
+      expect(global.fetch).not.toHaveBeenCalled();
+
+      // Should have created a room and connected
+      const mockRoom = (Room as any).mock.results[0].value;
+      expect(mockRoom.connect).toHaveBeenCalledWith(
+        'wss://livekit.example.com',
+        'eyJhbGciOiJIUzI1NiJ9.eyJleHAiOjk5OTk5OTk5OTl9.test'
+      );
+
+      expect(sdk.isConnected()).toBe(true);
+      expect(sdk.getStatus().callId).toBe('call-abc-123');
+    });
+
+    it('should throw error if already connected', async () => {
+      const sdk = new VoiceAI();
+
+      await sdk.connectRoom({
+        serverUrl: 'wss://livekit.example.com',
+        participantToken: 'eyJhbGciOiJIUzI1NiJ9.eyJleHAiOjk5OTk5OTk5OTl9.test',
+        callId: 'call-1',
+      });
+
+      await expect(sdk.connectRoom({
+        serverUrl: 'wss://livekit.example.com',
+        participantToken: 'token',
+        callId: 'call-2',
+      })).rejects.toThrow('Already connected or connecting');
+    });
+  });
+
+  describe('getConnectionDetails (requires API key)', () => {
+    it('should fetch connection details from API', async () => {
+      const sdk = new VoiceAI({ apiKey: 'vk_test', apiUrl: 'https://api.example.com/api/v1' });
+
+      (global.fetch as Mock).mockResolvedValueOnce({
+        ok: true,
+        json: async () => ({
+          server_url: 'wss://lk.example.com',
+          participant_token: 'token-abc',
+          call_id: 'call-xyz',
+        }),
+      });
+
+      const details = await sdk.getConnectionDetails({ agentId: 'agent-123' });
+
+      expect(details.serverUrl).toBe('wss://lk.example.com');
+      expect(details.participantToken).toBe('token-abc');
+      expect(details.callId).toBe('call-xyz');
+    });
+
+    it('should throw error when no API key', async () => {
+      const sdk = new VoiceAI();
+
+      await expect(sdk.getConnectionDetails({ agentId: 'agent-123' })).rejects.toThrow(
+        'API key is required'
+      );
+    });
+  });
+
+  describe('connect without auth', () => {
+    it('should throw error when no auth method configured and no pre-fetched details', async () => {
+      const sdk = new VoiceAI(); // No API key
+
+      await expect(sdk.connect({ agentId: 'agent-123' })).rejects.toThrow(
+        'No authentication method configured'
+      );
+    });
+
+    it('should still work with pre-fetched details via connect()', async () => {
+      const sdk = new VoiceAI();
+
+      await sdk.connect({
+        serverUrl: 'wss://livekit.example.com',
+        participantToken: 'eyJhbGciOiJIUzI1NiJ9.eyJleHAiOjk5OTk5OTk5OTl9.test',
+        callId: 'call-abc',
+      });
+
+      expect(global.fetch).not.toHaveBeenCalled();
+      expect(sdk.isConnected()).toBe(true);
     });
   });
 

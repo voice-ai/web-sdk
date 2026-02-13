@@ -1,6 +1,6 @@
 {
   "name": "@voice-ai-labs/web-sdk",
-  "version": "0.4.0",
+  "version": "0.5.0",
   "type": "module",
   "description": "Web SDK for Voice.ai - Easy integration of voice agents into JavaScript applications",
   "main": "dist/index.js",

@@ -1,5 +1,5 @@
 import { describe, it, expect, beforeEach, vi, Mock } from 'vitest';
-import { VoiceAIClient } from '../client';
+import VoiceAI from '../index';
 import type {
   WebhookEventsConfig,
   WebhooksConfig,
@@ -226,12 +226,12 @@ describe('Webhook Types', () => {
 });
 
 describe('Webhook API Client', () => {
-  let client: VoiceAIClient;
+  let client: VoiceAI;
 
   beforeEach(() => {
     vi.clearAllMocks();
     (global.fetch as Mock).mockClear();
-    client = new VoiceAIClient({ apiKey: 'vk_test_key' });
+    client = new VoiceAI({ apiKey: 'vk_test_key' });
   });
 
   describe('Create agent with webhooks', () => {

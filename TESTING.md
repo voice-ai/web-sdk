@@ -47,7 +47,8 @@ Tests are located in `src/__tests__/`:
 src/__tests__/
 ├── setup.ts          # Global test setup (mocks)
 ├── index.test.ts     # VoiceAI class tests (real-time voice)
-└── client.test.ts    # API client tests (REST API)
+├── client.test.ts    # REST API tests (agents, tts, analytics, etc. via VoiceAI)
+└── webhooks.test.ts  # Webhook config and test endpoint
 ```
 
 ### Test Categories
@@ -60,11 +61,12 @@ src/__tests__/
 - Message sending
 - Retry logic
 
-**`client.test.ts`** - Tests for REST API clients:
-- `AgentClient` - Agent CRUD operations
-- `AnalyticsClient` - Call history, transcripts, stats
-- `KnowledgeBaseClient` - Knowledge base operations
-- `PhoneNumberClient` - Phone number management
+**`client.test.ts`** - Tests for REST API (via VoiceAI.agents, .tts, .analytics, etc.):
+- Agent CRUD operations
+- Call history, transcripts, stats
+- Knowledge base operations
+- Phone number management
+- TTS synthesize, voices, clone
 - Error handling (401, 404, 422, etc.)
 
 ## Writing Tests
@@ -94,7 +96,7 @@ Object.defineProperty(global, 'window', {
 
 ```typescript
 import { describe, it, expect, beforeEach, vi, Mock } from 'vitest';
-import { VoiceAI } from '../index';
+import VoiceAI from '../index';
 
 describe('VoiceAI', () => {
   beforeEach(() => {
@@ -102,8 +104,9 @@ describe('VoiceAI', () => {
     (global.fetch as Mock).mockClear();
   });
 
-  it('should throw error if no API key provided', () => {
-    expect(() => new VoiceAI({} as any)).toThrow('API key is required');
+  it('should throw when accessing REST clients without API key', () => {
+    const sdk = new VoiceAI();
+    expect(() => sdk.agents).toThrow('API key required');
   });
 
   it('should initialize with API key', () => {

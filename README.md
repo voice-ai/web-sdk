@@ -32,12 +32,15 @@ await voiceai.disconnect();
 
 The SDK provides a unified interface for:
 
-- **Real-time Voice** - Connect to voice agents with live transcription
-- **Agent Management** - Create, update, deploy, and manage agents
-- **Webhooks** - Receive real-time notifications for call events
-- **Analytics** - Access call history and transcripts
-- **Knowledge Base** - Manage RAG documents for your agents
-- **Phone Numbers** - Search and manage phone numbers
+- [**Real-time Voice**](#real-time-voice) — Connect to voice agents with live transcription
+- [**Text-to-Speech**](#text-to-speech) — Generate speech and manage voices
+- [**Agent Management**](#agent-management) — Create, update, deploy, and manage agents
+- [**Knowledge Base**](#knowledge-base) — Manage RAG documents for your agents
+- [**Phone Numbers**](#phone-numbers) — Search and manage phone numbers
+- [**Analytics**](#analytics) — Access call history and transcripts
+- [**Webhooks**](#webhooks) — Receive real-time notifications for call events
+- [**Security**](#security) — Backend token exchange, endToken, CORS
+- [**Error Handling**](#error-handling) — Connection and API error handling
 
 ## Real-time Voice
 
@@ -48,44 +51,9 @@ await voiceai.connect({
   agentId: 'agent-123',
   autoPublishMic: true  // default: true
 });
-```
 
-### Error Handling
-
-The `connect()` method throws an `Error` if connection fails. Common error cases:
-
-```typescript
-try {
-  await voiceai.connect({ agentId: 'agent-123' });
-} catch (error) {
-  if (error.message.includes('insufficient_credits')) {
-    // User is out of credits
-    console.error('Out of credits. Please add more credits to continue.');
-  } else if (error.message.includes('Authentication failed')) {
-    // Invalid API key
-    console.error('Invalid API key');
-  } else if (error.message.includes('agent_not_deployed')) {
-    // Agent is paused or disabled
-    console.error('Agent is not deployed');
-  } else {
-    console.error('Connection failed:', error.message);
-  }
-}
-```
-
-Errors are also emitted via the `onError` handler and reflected in `onStatusChange`:
-
-```typescript
-voiceai.onError((error) => {
-  console.error('Error:', error.message);
-});
-
-voiceai.onStatusChange((status) => {
-  if (status.error) {
-    // status.error contains the error message string
-    console.error('Connection error:', status.error);
-  }
-});
+// Test mode: preview paused agents before deploying
+await voiceai.connect({ agentId: 'agent-123', testMode: true });
 ```
 
 ### Events
@@ -119,6 +87,8 @@ voiceai.onError((error) => {
 });
 ```
 
+Each handler returns a function to unsubscribe: `const stop = voiceai.onTranscription(...); stop();`
+
 ### Microphone Control
 
 ```typescript
@@ -138,6 +108,65 @@ await voiceai.sendMessage('Hello agent!');
 await voiceai.disconnect();
 ```
 
+**Status (read-only)**
+```typescript
+voiceai.isConnected();
+voiceai.getStatus();          // { connected, connecting, callId, error }
+voiceai.getAgentState();      // { state, agentParticipantId }
+voiceai.getMicrophoneState(); // { enabled, muted }
+```
+
+## Text-to-Speech
+
+The TTS API provides speech generation and voice management.
+
+### Generate Speech
+
+```typescript
+// Non-streaming: returns complete audio as Blob
+const audio = await voiceai.tts.synthesize({
+  text: 'Hello, welcome to Voice AI!',
+  voice_id: 'voice-123',
+  language: 'en',
+  audio_format: 'mp3',
+});
+const url = URL.createObjectURL(audio);
+new Audio(url).play();
+
+// Streaming: returns Response with readable body
+const response = await voiceai.tts.synthesizeStream({
+  text: 'Hello, welcome!',
+  voice_id: 'voice-123',
+  language: 'en',
+});
+const reader = response.body!.getReader();
+// Read chunks: reader.read()
+```
+
+### Voice Management
+
+```typescript
+// List all available voices
+const voices = await voiceai.tts.listVoices();
+
+// Clone a voice from audio file (MP3/WAV/OGG, max 7.5MB)
+const voice = await voiceai.tts.cloneVoice({
+  file: audioFile,
+  name: 'My Voice',
+  language: 'en',
+  voice_visibility: 'PRIVATE',
+});
+
+// Get voice status (PENDING -> PROCESSING -> AVAILABLE)
+await voiceai.tts.getVoice(voice.voice_id);
+
+// Update voice metadata
+await voiceai.tts.updateVoice('voice-123', { name: 'Renamed', voice_visibility: 'PUBLIC' });
+
+// Delete voice
+await voiceai.tts.deleteVoice('voice-123');
+```
+
 ## Agent Management
 
 ```typescript
@@ -152,7 +181,7 @@ const agent = await voiceai.agents.create({
     greeting: 'Hello! How can I help you today?',
     tts_params: {
       voice_id: 'my-voice-id',
-      model: 'voiceai-tts-multilingual-v1-latest',
+      model: 'voiceai-tts-v1-latest',
       language: 'en'
     }
   }
@@ -171,23 +200,6 @@ await voiceai.agents.pause(agent.agent_id);
 
 // Delete an agent
 await voiceai.agents.disable(agent.agent_id);
-```
-
-## Analytics
-
-```typescript
-// Get call history
-const history = await voiceai.analytics.getCallHistory({
-  page: 1,
-  limit: 20,
-  agent_ids: ['agent-123']
-});
-
-// Get transcript URL
-const transcript = await voiceai.analytics.getTranscriptUrl(summaryId);
-
-// Get stats summary
-const stats = await voiceai.analytics.getStatsSummary();
 ```
 
 ## Knowledge Base
@@ -234,6 +246,23 @@ const myNumbers = await voiceai.phoneNumbers.list();
 
 // Release a number
 await voiceai.phoneNumbers.release('+14155551234');
+```
+
+## Analytics
+
+```typescript
+// Get call history
+const history = await voiceai.analytics.getCallHistory({
+  page: 1,
+  limit: 20,
+  agent_ids: ['agent-123']
+});
+
+// Get transcript URL
+const transcript = await voiceai.analytics.getTranscriptUrl(summaryId);
+
+// Get stats summary
+const stats = await voiceai.analytics.getStatsSummary();
 ```
 
 ## Webhooks
@@ -319,30 +348,107 @@ function verifyWebhook(body: string, headers: Headers, secret: string): boolean 
 }
 ```
 
-### Webhook Types
+## Security
+
+`connect()` fetches connection details and connects in one call. To keep your API key off the browser, split into two steps:
 
 ```typescript
-import type {
-  WebhookEventType,
-  WebhookEventsConfig,
-  WebhooksConfig,
-  WebhookEvent,
-  WebhookTestResponse,
-} from '@voice-ai-labs/web-sdk';
+// Step 1: Backend — get connection details (requires API key)
+const details = await voiceai.getConnectionDetails({ agentId: 'agent-123' });
+// Returns: { serverUrl, participantToken, callId, endToken }
+
+// Step 2: Frontend — connect with pre-fetched details (no API key needed)
+const voiceai = new VoiceAI();
+await voiceai.connectRoom(details);
+```
+
+**Important:** Pass `endToken` from your backend to the frontend. The SDK uses it on `disconnect()` to free the concurrency slot immediately.
+
+REST methods (`agents.*`, `tts.*`, `analytics.*`, etc.) require an API key and are CORS-blocked from browsers.
+
+## Error Handling
+
+### Connection errors
+
+The `connect()` method throws an `Error` if connection fails. Common error cases:
+
+```typescript
+try {
+  await voiceai.connect({ agentId: 'agent-123' });
+} catch (error) {
+  if (error.message.includes('insufficient_credits')) {
+    console.error('Out of credits. Please add more credits to continue.');
+  } else if (error.message.includes('Authentication failed')) {
+    console.error('Invalid API key');
+  } else if (error.message.includes('agent_not_deployed')) {
+    console.error('Agent is not deployed');
+  } else {
+    console.error('Connection failed:', error.message);
+  }
+}
+```
+
+Errors are also emitted via `onError` and reflected in `onStatusChange`:
+
+```typescript
+voiceai.onError((error) => {
+  console.error('Error:', error.message);
+});
+
+voiceai.onStatusChange((status) => {
+  if (status.error) {
+    console.error('Connection error:', status.error);
+  }
+});
+```
+
+### REST API errors (agents, TTS, analytics, etc.)
+
+REST methods throw `VoiceAIError`:
+
+```typescript
+import { VoiceAIError } from '@voice-ai-labs/web-sdk';
+
+try {
+  const agent = await voiceai.agents.getById('nonexistent');
+} catch (error) {
+  if (error instanceof VoiceAIError) {
+    // error.message, error.status (401, 403, 404, 422), error.code, error.detail
+    if (error.status === 404) console.error('Agent not found');
+  }
+}
+
+try {
+  const audio = await voiceai.tts.synthesize({ text: '...', voice_id: 'voice-123' });
+} catch (error) {
+  if (error instanceof VoiceAIError) {
+    // error.status: 400 (validation), 401 (auth), 404 (voice not found), 422 (invalid request)
+    if (error.status === 404) console.error('Voice not found');
+  }
+}
 ```
 
 ## TypeScript
 
-Full TypeScript support with exported types:
+Full TypeScript support. Exported types:
 
 ```typescript
-import VoiceAI, {
-  type Agent,
-  type TranscriptionSegment,
-  type ConnectionStatus,
-  type TTSParams,
-  type WebhookEventsConfig,
-  type WebhookEvent,
+import VoiceAI, { VoiceAIError } from '@voice-ai-labs/web-sdk';
+import type {
+  VoiceAIConfig,
+  ConnectionOptions,
+  ConnectionDetails,
+  ConnectionStatus,
+  TranscriptionSegment,
+  AgentState,
+  AgentStateInfo,
+  AudioLevelInfo,
+  MicrophoneState,
+  Agent,
+  VoiceResponse,
+  VoiceStatus,
+  VoiceAgentWidgetOptions,
+  VoiceAgentWidgetTheme,
 } from '@voice-ai-labs/web-sdk';
 ```
 

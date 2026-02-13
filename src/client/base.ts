@@ -215,7 +215,7 @@ export class BaseClient {
   /**
    * Perform DELETE request
    */
-  protected async delete<T>(path: string): Promise<T> {
+  protected async httpDelete<T>(path: string): Promise<T> {
     const response = await fetch(`${this.apiUrl}${path}`, {
       method: 'DELETE',
       headers: this.getHeaders(),
