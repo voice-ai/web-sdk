@@ -199,7 +199,12 @@ export interface MCPServerConfig {
 /** Webhook event types */
 export type WebhookEventType = 'call.started' | 'call.completed';
 
-/** Webhook event notification configuration */
+/**
+ * Webhook event notification configuration exposed by the public API.
+ *
+ * `secret` is write-only (accepted in create/update payloads).
+ * `has_secret` is read-only (returned in API responses).
+ */
 export interface WebhookEventsConfig {
   /** Webhook endpoint URL (required) */
   url: string;
@@ -216,10 +221,38 @@ export interface WebhookEventsConfig {
   [key: string]: any;
 }
 
-/** Webhooks configuration */
+/**
+ * Webhook tool configuration exposed by the public API.
+ *
+ * `secret` is write-only (accepted in create/update payloads).
+ * `has_secret` is read-only (returned in API responses).
+ */
+export interface WebhookToolConfig {
+  /** Tool name (required) */
+  name: string;
+  /** Human-readable tool description (required) */
+  description: string;
+  /** Tool input schema or shorthand map */
+  parameters?: Record<string, any> | null;
+  /** Tool response schema or shorthand map */
+  response?: Record<string, any> | null;
+  /** Webhook endpoint URL for this tool (required) */
+  url: string;
+  /** HMAC-SHA256 signing secret for payload verification (set when configuring) */
+  secret?: string | null;
+  /** Whether a signing secret is configured (returned by API) */
+  has_secret?: boolean;
+  /** Request timeout in seconds */
+  timeout?: number | null;
+  [key: string]: any;
+}
+
+/** Webhooks configuration exposed by the public API */
 export interface WebhooksConfig {
   /** Event notification webhook configuration */
   events?: WebhookEventsConfig | null;
+  /** Tool webhook configurations */
+  tools?: WebhookToolConfig[] | null;
   [key: string]: any;
 }
 
@@ -739,4 +772,3 @@ export interface VoiceAIConfig {
   /** API base URL (optional, defaults to production) */
   apiUrl?: string;
 }
-
