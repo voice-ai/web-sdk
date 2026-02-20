@@ -2,6 +2,7 @@ import { describe, it, expect, beforeEach, vi, Mock } from 'vitest';
 import VoiceAI from '../index';
 import type {
   WebhookEventsConfig,
+  WebhookToolConfig,
   WebhooksConfig,
   WebhookEvent,
   WebhookEventType,
@@ -112,6 +113,33 @@ describe('Webhook Types', () => {
 
       expect(config.events).toBeUndefined();
     });
+
+    it('should support events and tools together', () => {
+      const config: WebhooksConfig = {
+        events: {
+          url: 'https://example.com/webhooks/events',
+          events: ['call.started'],
+        },
+        tools: [
+          {
+            name: 'lookup_order',
+            description: 'Lookup an order by id',
+            url: 'https://example.com/webhooks/tools',
+          },
+        ],
+      };
+
+      expect(config.events?.url).toBe('https://example.com/webhooks/events');
+      expect(config.tools?.[0]?.name).toBe('lookup_order');
+    });
+
+    it('should allow null tools', () => {
+      const config: WebhooksConfig = {
+        tools: null,
+      };
+
+      expect(config.tools).toBeNull();
+    });
   });
 
   describe('WebhooksConfig (response shape)', () => {
@@ -126,6 +154,80 @@ describe('Webhook Types', () => {
       };
 
       expect(config.events?.has_secret).toBe(true);
+    });
+  });
+
+  describe('WebhookToolConfig', () => {
+    it('should allow minimal tool configuration', () => {
+      const tool: WebhookToolConfig = {
+        name: 'lookup_order',
+        description: 'Lookup an order by id',
+        url: 'https://example.com/webhooks/tools/lookup-order',
+      };
+
+      expect(tool.name).toBe('lookup_order');
+      expect(tool.url).toContain('/lookup-order');
+      expect(tool.parameters).toBeUndefined();
+      expect(tool.response).toBeUndefined();
+    });
+
+    it('should represent write/read secret semantics', () => {
+      const writeConfig: WebhookToolConfig = {
+        name: 'lookup_order',
+        description: 'Lookup order details',
+        url: 'https://example.com/webhooks/tools/lookup-order',
+        secret: 'write-only-secret',
+      };
+
+      const readConfig: WebhookToolConfig = {
+        name: 'lookup_order',
+        description: 'Lookup order details',
+        url: 'https://example.com/webhooks/tools/lookup-order',
+        has_secret: true,
+      };
+
+      expect(writeConfig.secret).toBe('write-only-secret');
+      expect((readConfig as any).secret).toBeUndefined();
+      expect(readConfig.has_secret).toBe(true);
+    });
+
+    it('should allow full tool configuration with schema-like fields', () => {
+      const tool: WebhookToolConfig = {
+        name: 'lookup_order',
+        description: 'Lookup order details',
+        parameters: {
+          type: 'object',
+          properties: {
+            order_id: { type: 'string', description: 'Order identifier' },
+            include_history: { type: 'boolean' },
+          },
+          required: ['order_id'],
+        },
+        response: {
+          type: 'object',
+          properties: {
+            order_id: { type: 'string' },
+            status: { type: 'string' },
+            items: {
+              type: 'array',
+              items: {
+                type: 'object',
+                properties: {
+                  sku: { type: 'string' },
+                  quantity: { type: 'number' },
+                },
+              },
+            },
+          },
+        },
+        url: 'https://example.com/webhooks/tools/lookup-order',
+        secret: 'tool-secret',
+        timeout: 10,
+      };
+
+      expect(tool.parameters?.properties?.order_id?.type).toBe('string');
+      expect(tool.response?.properties?.items?.items?.properties?.sku?.type).toBe('string');
+      expect(tool.timeout).toBe(10);
     });
   });
 
@@ -322,6 +424,69 @@ describe('Webhook API Client', () => {
       expect(result.config?.webhooks?.events?.url).toBe('https://example.com/webhooks');
       expect(result.config?.webhooks?.events?.has_secret).toBe(false);
     });
+
+    it('should create agent with webhook tools config', async () => {
+      const mockAgent = {
+        agent_id: 'agent-123',
+        name: 'Webhook Tool Agent',
+        config: {
+          webhooks: {
+            tools: [
+              {
+                name: 'lookup_order',
+                description: 'Lookup order details',
+                url: 'https://example.com/webhooks/tools/lookup-order',
+                has_secret: true,
+                timeout: 8,
+              },
+            ],
+          },
+        },
+        status: 'paused',
+      };
+
+      (global.fetch as Mock).mockResolvedValueOnce({
+        ok: true,
+        headers: new Headers({ 'content-type': 'application/json' }),
+        json: async () => mockAgent,
+      });
+
+      await client.agents.create({
+        name: 'Webhook Tool Agent',
+        config: {
+          webhooks: {
+            tools: [
+              {
+                name: 'lookup_order',
+                description: 'Lookup order details',
+                url: 'https://example.com/webhooks/tools/lookup-order',
+                secret: 'tool-secret',
+                timeout: 8,
+                parameters: {
+                  type: 'object',
+                  properties: {
+                    order_id: { type: 'string' },
+                  },
+                },
+                response: {
+                  type: 'object',
+                  properties: {
+                    status: { type: 'string' },
+                  },
+                },
+              },
+            ],
+          },
+        },
+      });
+
+      const [, request] = (global.fetch as Mock).mock.calls[0];
+      const requestBody = JSON.parse(request.body);
+      expect(requestBody.config.webhooks.tools).toHaveLength(1);
+      expect(requestBody.config.webhooks.tools[0].name).toBe('lookup_order');
+      expect(requestBody.config.webhooks.tools[0].parameters.properties.order_id.type).toBe('string');
+      expect(requestBody.config.webhooks.tools[0].response.properties.status.type).toBe('string');
+    });
   });
 
   describe('Update agent webhooks', () => {
@@ -424,6 +589,66 @@ describe('Webhook API Client', () => {
 
       expect(result.config?.webhooks?.events?.enabled).toBe(false);
     });
+
+    it('should update webhook tool fields', async () => {
+      const mockAgent = {
+        agent_id: 'agent-123',
+        config: {
+          webhooks: {
+            tools: [
+              {
+                name: 'lookup_order',
+                description: 'Lookup order details',
+                url: 'https://new-endpoint.com/webhooks/tools/lookup-order',
+                timeout: 15,
+                has_secret: true,
+                parameters: {
+                  type: 'object',
+                  properties: {
+                    order_id: { type: 'string' },
+                    region: { type: 'string' },
+                  },
+                },
+              },
+            ],
+          },
+        },
+      };
+
+      (global.fetch as Mock).mockResolvedValueOnce({
+        ok: true,
+        headers: new Headers({ 'content-type': 'application/json' }),
+        json: async () => mockAgent,
+      });
+
+      await client.agents.update('agent-123', {
+        config: {
+          webhooks: {
+            tools: [
+              {
+                name: 'lookup_order',
+                description: 'Lookup order details',
+                url: 'https://new-endpoint.com/webhooks/tools/lookup-order',
+                timeout: 15,
+                parameters: {
+                  type: 'object',
+                  properties: {
+                    order_id: { type: 'string' },
+                    region: { type: 'string' },
+                  },
+                },
+              },
+            ],
+          },
+        },
+      });
+
+      const [, request] = (global.fetch as Mock).mock.calls[0];
+      const requestBody = JSON.parse(request.body);
+      expect(requestBody.config.webhooks.tools[0].url).toBe('https://new-endpoint.com/webhooks/tools/lookup-order');
+      expect(requestBody.config.webhooks.tools[0].timeout).toBe(15);
+      expect(requestBody.config.webhooks.tools[0].parameters.properties.region.type).toBe('string');
+    });
   });
 
   describe('Get agent with webhooks', () => {
@@ -456,6 +681,42 @@ describe('Webhook API Client', () => {
       expect(result.config?.webhooks?.events?.has_secret).toBe(true);
       expect((result.config?.webhooks?.events as any)?.secret).toBeUndefined();
       expect(result.config?.webhooks?.events?.events).toContain('call.started');
+    });
+
+    it('should return agent with webhook tool has_secret but not secret', async () => {
+      const mockAgent = {
+        agent_id: 'agent-123',
+        name: 'Test Agent',
+        config: {
+          webhooks: {
+            tools: [
+              {
+                name: 'lookup_order',
+                description: 'Lookup order details',
+                url: 'https://example.com/webhooks/tools/lookup-order',
+                has_secret: true,
+                timeout: 10,
+                response: {
+                  type: 'object',
+                },
+              },
+            ],
+          },
+        },
+        status: 'deployed',
+      };
+
+      (global.fetch as Mock).mockResolvedValueOnce({
+        ok: true,
+        headers: new Headers({ 'content-type': 'application/json' }),
+        json: async () => mockAgent,
+      });
+
+      const result = await client.agents.getById('agent-123');
+
+      expect(result.config?.webhooks?.tools?.[0]?.has_secret).toBe(true);
+      expect((result.config?.webhooks?.tools?.[0] as any)?.secret).toBeUndefined();
+      expect(result.config?.webhooks?.tools?.[0]?.name).toBe('lookup_order');
     });
 
     it('should return agent without webhooks', async () => {

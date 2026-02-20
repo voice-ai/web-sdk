@@ -267,12 +267,12 @@ const stats = await voiceai.analytics.getStatsSummary();
 
 ## Webhooks
 
-Configure webhooks to receive real-time notifications when call events occur.
+Configure webhooks when creating or updating an agent.
 
-### Configure Webhook Events
+### Configure Webhook Events and Tools
 
 ```typescript
-// Create agent with webhook events
+// Create agent with webhook events and tools
 const agent = await voiceai.agents.create({
   name: 'Support Agent',
   config: {
@@ -284,7 +284,26 @@ const agent = await voiceai.agents.create({
         events: ['call.started', 'call.completed'],  // Or omit for all events
         timeout: 5,
         enabled: true
-      }
+      },
+      tools: [
+        {
+          name: 'get_account_status',
+          description: 'Fetches current account status for a customer.',
+          url: 'https://your-server.com/webhooks/tools/account-status',
+          parameters: {
+            customer_id: 'string'
+          },
+          response: {
+            type: 'object',
+            properties: {
+              status: { type: 'string' },
+              tier: { type: 'string' }
+            }
+          },
+          secret: 'tool-signing-secret',
+          timeout: 10
+        }
+      ]
     }
   }
 });
@@ -297,7 +316,19 @@ await voiceai.agents.update(agentId, {
         url: 'https://your-server.com/webhooks',
         events: ['call.completed'],  // Only receive call.completed
         enabled: true
-      }
+      },
+      tools: [
+        {
+          name: 'search_knowledge_base',
+          description: 'Searches KB and returns ranked snippets.',
+          url: 'https://your-server.com/webhooks/tools/search-kb',
+          parameters: {
+            query: 'string',
+            top_k: 'number'
+          },
+          timeout: 20
+        }
+      ]
     }
   }
 });
@@ -325,6 +356,22 @@ interface WebhookEvent {
     // call.started: started_at, from_number?, to_number?
     // call.completed: duration_seconds, credits_used, transcript_uri, transcript_summary
   };
+}
+
+interface WebhookToolPayload {
+  event: 'function_call';
+  timestamp: string;  // ISO 8601
+  call_id: string;
+  agent_id: string;
+  data: {
+    request_id: string;
+    function_name: string;
+    arguments: Record<string, unknown>;
+  };
+}
+
+interface WebhookToolResult {
+  result: unknown;
 }
 ```
 
