@@ -308,7 +308,7 @@ const agent = await voiceai.agents.create({
   }
 });
 
-// Update webhook tools on existing agent
+// Update webhook config on existing agent
 await voiceai.agents.update(agentId, {
   config: {
     webhooks: {
