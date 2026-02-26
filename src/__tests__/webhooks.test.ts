@@ -162,33 +162,36 @@ describe('Webhook Types', () => {
       const tool: WebhookToolConfig = {
         name: 'lookup_order',
         description: 'Lookup an order by id',
+        parameters: {},
         url: 'https://example.com/webhooks/tools/lookup-order',
+        method: 'POST',
+        execution_mode: 'sync',
+        auth_type: 'none',
       };
 
       expect(tool.name).toBe('lookup_order');
       expect(tool.url).toContain('/lookup-order');
-      expect(tool.parameters).toBeUndefined();
+      expect(tool.parameters).toEqual({});
       expect(tool.response).toBeUndefined();
     });
 
-    it('should represent write/read secret semantics', () => {
-      const writeConfig: WebhookToolConfig = {
+    it('should include auth and execution semantics', () => {
+      const config: WebhookToolConfig = {
         name: 'lookup_order',
         description: 'Lookup order details',
+        parameters: {},
         url: 'https://example.com/webhooks/tools/lookup-order',
-        secret: 'write-only-secret',
+        method: 'POST',
+        execution_mode: 'async',
+        auth_type: 'api_key',
+        auth_token: 'key',
+        headers: { 'X-Custom': 'value' },
       };
 
-      const readConfig: WebhookToolConfig = {
-        name: 'lookup_order',
-        description: 'Lookup order details',
-        url: 'https://example.com/webhooks/tools/lookup-order',
-        has_secret: true,
-      };
-
-      expect(writeConfig.secret).toBe('write-only-secret');
-      expect((readConfig as any).secret).toBeUndefined();
-      expect(readConfig.has_secret).toBe(true);
+      expect(config.execution_mode).toBe('async');
+      expect(config.auth_type).toBe('api_key');
+      expect(config.auth_token).toBe('key');
+      expect(config.headers?.['X-Custom']).toBe('value');
     });
 
     it('should allow full tool configuration with schema-like fields', () => {
@@ -221,7 +224,11 @@ describe('Webhook Types', () => {
           },
         },
         url: 'https://example.com/webhooks/tools/lookup-order',
-        secret: 'tool-secret',
+        method: 'POST',
+        execution_mode: 'sync',
+        auth_type: 'bearer_token',
+        auth_token: 'tool-token',
+        headers: { 'X-Trace': '1' },
         timeout: 10,
       };
 
@@ -436,7 +443,9 @@ describe('Webhook API Client', () => {
                 name: 'lookup_order',
                 description: 'Lookup order details',
                 url: 'https://example.com/webhooks/tools/lookup-order',
-                has_secret: true,
+                method: 'POST',
+                execution_mode: 'sync',
+                auth_type: 'none',
                 timeout: 8,
               },
             ],
@@ -460,7 +469,9 @@ describe('Webhook API Client', () => {
                 name: 'lookup_order',
                 description: 'Lookup order details',
                 url: 'https://example.com/webhooks/tools/lookup-order',
-                secret: 'tool-secret',
+                method: 'POST',
+                execution_mode: 'sync',
+                auth_type: 'none',
                 timeout: 8,
                 parameters: {
                   type: 'object',
@@ -683,7 +694,7 @@ describe('Webhook API Client', () => {
       expect(result.config?.webhooks?.events?.events).toContain('call.started');
     });
 
-    it('should return agent with webhook tool has_secret but not secret', async () => {
+    it('should return agent with webhook tool tool auth and execution fields', async () => {
       const mockAgent = {
         agent_id: 'agent-123',
         name: 'Test Agent',
@@ -694,7 +705,10 @@ describe('Webhook API Client', () => {
                 name: 'lookup_order',
                 description: 'Lookup order details',
                 url: 'https://example.com/webhooks/tools/lookup-order',
-                has_secret: true,
+                method: 'POST',
+                execution_mode: 'sync',
+                auth_type: 'none',
+                parameters: {},
                 timeout: 10,
                 response: {
                   type: 'object',
@@ -714,8 +728,8 @@ describe('Webhook API Client', () => {
 
       const result = await client.agents.getById('agent-123');
 
-      expect(result.config?.webhooks?.tools?.[0]?.has_secret).toBe(true);
-      expect((result.config?.webhooks?.tools?.[0] as any)?.secret).toBeUndefined();
+      expect(result.config?.webhooks?.tools?.[0]?.method).toBe('POST');
+      expect(result.config?.webhooks?.tools?.[0]?.auth_type).toBe('none');
       expect(result.config?.webhooks?.tools?.[0]?.name).toBe('lookup_order');
     });
 

@@ -269,6 +269,11 @@ const stats = await voiceai.analytics.getStatsSummary();
 
 Configure webhooks when creating or updating an agent.
 
+`webhooks.events` and `webhooks.tools` use different contracts:
+
+- `webhooks.events` supports `secret` (write-only on create/update) and `has_secret` (read-only on fetch).
+- `webhooks.tools` define outbound API calls and do not use `secret`.
+
 ### Configure Webhook Events and Tools
 
 ```typescript
@@ -280,7 +285,7 @@ const agent = await voiceai.agents.create({
     webhooks: {
       events: {
         url: 'https://your-server.com/webhooks/voice-events',
-        secret: 'your-hmac-secret',  // Optional: for signature verification
+        secret: 'your-hmac-secret',  // Event webhook signing secret
         events: ['call.started', 'call.completed'],  // Or omit for all events
         timeout: 5,
         enabled: true
@@ -293,6 +298,13 @@ const agent = await voiceai.agents.create({
           parameters: {
             customer_id: 'string'
           },
+          method: 'POST',
+          execution_mode: 'sync',
+          auth_type: 'api_key',
+          auth_token: 'your-api-key',
+          headers: {
+            'X-Service-Version': '2026-02'
+          },
           response: {
             type: 'object',
             properties: {
@@ -300,7 +312,6 @@ const agent = await voiceai.agents.create({
               tier: { type: 'string' }
             }
           },
-          secret: 'tool-signing-secret',
           timeout: 10
         }
       ]
@@ -326,6 +337,12 @@ await voiceai.agents.update(agentId, {
             query: 'string',
             top_k: 'number'
           },
+          method: 'GET',
+          execution_mode: 'async',
+          auth_type: 'custom_headers',
+          headers: {
+            'X-Internal-Token': 'your-internal-token'
+          },
           timeout: 20
         }
       ]
@@ -334,6 +351,9 @@ await voiceai.agents.update(agentId, {
 });
 ```
 
+Required fields for each webhook tool: `name`, `description`, `parameters`, `url`, `method`, `execution_mode`, `auth_type`.  
+Optional fields: `auth_token`, `headers`, `response`, `timeout`.
+
 ### Event Types
 
 | Event | Description |
@@ -341,9 +361,9 @@ await voiceai.agents.update(agentId, {
 | `call.started` | Call connected, agent ready |
 | `call.completed` | Call ended, includes transcript and usage data |
 
-### Webhook Payload
+### Event Webhook Payload
 
-Your server receives POST requests with this structure:
+Your event webhook URL receives POST requests with this structure:
 
 ```typescript
 interface WebhookEvent {
@@ -357,32 +377,59 @@ interface WebhookEvent {
     // call.completed: duration_seconds, credits_used, transcript_uri, transcript_summary
   };
 }
-
-interface WebhookToolPayload {
-  event: 'function_call';
-  timestamp: string;  // ISO 8601
-  call_id: string;
-  agent_id: string;
-  data: {
-    request_id: string;
-    function_name: string;
-    arguments: Record<string, unknown>;
-  };
-}
-
-interface WebhookToolResult {
-  result: unknown;
-}
 ```
 
-### Signature Verification
+### Webhook Tool Request Shape
 
-If you configure a `secret`, verify the HMAC-SHA256 signature:
+For webhook tools, Voice.ai makes outbound HTTP requests directly to each tool `url`.
+
+- `method: 'GET'`: tool arguments are sent as query parameters.
+- `method: 'POST' | 'PUT' | 'PATCH' | 'DELETE'`: tool arguments are sent as JSON body.
+- Metadata headers are always sent:
+  - `X-VoiceAI-Request-Id`
+  - `X-VoiceAI-Tool-Name`
+  - `X-VoiceAI-Agent-Id`
+  - `X-VoiceAI-Call-Id`
+
+```http
+GET /webhooks/tools/search-kb?query=refund+policy&top_k=3
+X-VoiceAI-Request-Id: req_123
+X-VoiceAI-Tool-Name: search_knowledge_base
+X-VoiceAI-Agent-Id: agent_123
+X-VoiceAI-Call-Id: call_123
+```
+
+```http
+POST /webhooks/tools/account-status
+Content-Type: application/json
+X-VoiceAI-Request-Id: req_456
+X-VoiceAI-Tool-Name: get_account_status
+X-VoiceAI-Agent-Id: agent_123
+X-VoiceAI-Call-Id: call_123
+
+{"customer_id":"cust_789"}
+```
+
+### Webhook Tool Authentication
+
+- `auth_type: 'none'`: no auth headers added.
+- `auth_type: 'bearer_token'`: sends `Authorization: Bearer <auth_token>`.
+- `auth_type: 'api_key'`: sends `X-API-Key: <auth_token>`.
+- `auth_type: 'custom_headers'`: sends your configured `headers` map.
+
+### Webhook Tool Response Behavior
+
+- `execution_mode: 'sync'`: waits for downstream response body; non-2xx fails the tool call.
+- `execution_mode: 'async'`: treats any 2xx as accepted and does not require a response payload.
+
+### Signature Verification (Event Webhooks)
+
+If you configure `webhooks.events.secret`, verify the HMAC-SHA256 signature:
 
 ```typescript
 import crypto from 'crypto';
 
-function verifyWebhook(body: string, headers: Headers, secret: string): boolean {
+function verifyEventWebhook(body: string, headers: Headers, secret: string): boolean {
   const signature = headers.get('x-webhook-signature');
   const timestamp = headers.get('x-webhook-timestamp');
   
