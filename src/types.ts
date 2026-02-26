@@ -224,8 +224,7 @@ export interface WebhookEventsConfig {
 /**
  * Webhook tool configuration exposed by the public API.
  *
- * `secret` is write-only (accepted in create/update payloads).
- * `has_secret` is read-only (returned in API responses).
+ * Webhook tools are outbound API-call definitions.
  */
 export interface WebhookToolConfig {
   /** Tool name (required) */
@@ -233,15 +232,21 @@ export interface WebhookToolConfig {
   /** Human-readable tool description (required) */
   description: string;
   /** Tool input schema or shorthand map */
-  parameters?: Record<string, any> | null;
+  parameters: Record<string, any>;
   /** Tool response schema or shorthand map */
   response?: Record<string, any> | null;
   /** Webhook endpoint URL for this tool (required) */
   url: string;
-  /** HMAC-SHA256 signing secret for payload verification (set when configuring) */
-  secret?: string | null;
-  /** Whether a signing secret is configured (returned by API) */
-  has_secret?: boolean;
+  /** Outbound HTTP method */
+  method: 'GET' | 'POST' | 'PUT' | 'PATCH' | 'DELETE';
+  /** Tool execution mode */
+  execution_mode: 'sync' | 'async';
+  /** Authentication mode */
+  auth_type: 'none' | 'bearer_token' | 'api_key' | 'custom_headers';
+  /** Token for bearer_token or api_key auth */
+  auth_token?: string | null;
+  /** Additional headers (also used for custom_headers auth) */
+  headers?: Record<string, string> | null;
   /** Request timeout in seconds */
   timeout?: number | null;
   [key: string]: any;
