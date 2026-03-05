@@ -161,6 +161,42 @@ describe('VoiceAI REST API (agents, analytics, tts, etc.)', () => {
       expect(result.message).toBe('Agent disabled');
     });
 
+
+    it('should create outbound call via agents client', async () => {
+      const mockOutbound = {
+        call_id: 'call-123',
+        room_name: 'call_outbound_room',
+        agent_id: 'agent-123',
+        target_phone_number: '+15551234567',
+        status: 'initiated',
+        initiated_at: '2024-01-01T00:00:00Z',
+      };
+      (global.fetch as Mock).mockResolvedValueOnce({
+        ok: true,
+        headers: new Headers({ 'content-type': 'application/json' }),
+        json: async () => mockOutbound,
+      });
+
+      const result = await client.agents.createOutboundCall({
+        agent_id: 'agent-123',
+        target_phone_number: '+15551234567',
+        payload: { case_id: 'abc-1' },
+      });
+
+      expect(result).toEqual(mockOutbound);
+      expect(global.fetch).toHaveBeenCalledWith(
+        'https://dev.voice.ai/api/v1/calls/outbound',
+        expect.objectContaining({
+          method: 'POST',
+          body: JSON.stringify({
+            agent_id: 'agent-123',
+            target_phone_number: '+15551234567',
+            payload: { case_id: 'abc-1' },
+          }),
+        })
+      );
+    });
+
     it('should get agent status', async () => {
       const mockStatus = {
         agent_id: 'agent-123',
@@ -215,9 +251,13 @@ describe('VoiceAI REST API (agents, analytics, tts, etc.)', () => {
         json: async () => mockTranscript,
       });
 
-      const result = await client.analytics.getTranscriptUrl(12345);
+      const result = await client.analytics.getTranscriptUrl('call-12345');
 
       expect(result.url).toBe('https://example.com/transcript.json');
+      expect(global.fetch).toHaveBeenCalledWith(
+        'https://dev.voice.ai/api/v1/agent/call-history/call-12345/transcript',
+        expect.objectContaining({ method: 'GET' })
+      );
     });
 
     it('should get stats summary', async () => {

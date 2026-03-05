@@ -175,6 +175,28 @@ export interface TTSParams {
   [key: string]: any;
 }
 
+/** Allowed types for outbound payload schema fields */
+export type OutboundCallPayloadFieldType =
+  | 'string'
+  | 'number'
+  | 'boolean'
+  | 'integer'
+  | 'object'
+  | 'array';
+
+/**
+ * Schema for a single outbound payload field.
+ *
+ * Note: field presence is always optional; only provided payload keys are validated.
+ */
+export interface OutboundCallPayloadFieldSchema {
+  type: OutboundCallPayloadFieldType;
+  [key: string]: any;
+}
+
+/** Outbound call payload schema keyed by payload field name */
+export type OutboundCallPayloadSchema = Record<string, OutboundCallPayloadFieldSchema>;
+
 /** MCP Server configuration */
 export interface MCPServerConfig {
   /** Human-readable name for the server (required) */
@@ -329,6 +351,15 @@ export interface AgentConfig {
   vad_activation_threshold?: number | null;
   /** Phone number in E.164 format */
   phone_number?: string | null;
+  /** Whether agent can make outbound calls to saved contacts */
+  allow_outbound_calling?: boolean | null;
+  /**
+   * Optional outbound payload schema.
+   *
+   * All declared fields are optional. Unknown payload keys are rejected.
+   * Example: { case_id: { type: 'string' }, priority: { type: 'integer' } }
+   */
+  outbound_call_payload_schema?: OutboundCallPayloadSchema | null;
   /** Webhook configuration for event notifications */
   webhooks?: WebhooksConfig | null;
   /** MCP servers configuration */
@@ -413,6 +444,28 @@ export interface AgentConnectionStatusResponse {
   [key: string]: any;
 }
 
+
+/** Request body for creating an outbound call */
+export interface CreateOutboundCallRequest {
+  /** Agent ID to make the outbound call */
+  agent_id: string;
+  /** Phone number to dial */
+  target_phone_number: string;
+  /** Optional outbound initialization payload validated against agent config */
+  payload?: Record<string, any> | null;
+}
+
+/** Response body for outbound call creation */
+export interface CreateOutboundCallResponse {
+  call_id: string;
+  room_name: string;
+  agent_id: string;
+  target_phone_number: string;
+  status: string;
+  initiated_at: string;
+  [key: string]: any;
+}
+
 /** Agent status summary */
 export interface AgentStatusSummary {
   deployed: number;
@@ -459,6 +512,7 @@ export interface ListAgentsOptions extends PaginationOptions {
 /** Call history item */
 export interface CallHistoryItem {
   id: number;
+  call_id?: string | null;
   agent_id?: string | null;
   agent_name?: string | null;
   call_timestamp: string;

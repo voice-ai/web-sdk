@@ -22,6 +22,8 @@ import type {
   PaginatedAgentResponse,
   ListAgentsOptions,
   AssignKnowledgeBaseRequest,
+  CreateOutboundCallRequest,
+  CreateOutboundCallResponse,
 } from '../types';
 
 /**
@@ -224,6 +226,16 @@ export class AgentClient extends BaseClient {
    */
   async getStatus(agentId: string): Promise<AgentConnectionStatusResponse> {
     return super.get<AgentConnectionStatusResponse>(`/connection/agent-status/${encodeURIComponent(agentId)}`);
+  }
+
+
+  /**
+   * Create an outbound call for an agent.
+   *
+   * Requires backend-side credentials (service token or dev API key).
+   */
+  async createOutboundCall(options: CreateOutboundCallRequest): Promise<CreateOutboundCallResponse> {
+    return this.post<CreateOutboundCallResponse>('/calls/outbound', options);
   }
 
   /**

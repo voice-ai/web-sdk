@@ -67,19 +67,19 @@ export class AnalyticsClient extends BaseClient {
   /**
    * Get transcript download URL for a call
    * 
-   * @param summaryId - The call summary ID
+   * @param callId - The call identifier
    * @returns Object with transcript URL
    * 
    * @example
    * ```typescript
-   * const { url } = await client.analytics.getTranscriptUrl(12345);
+   * const { url } = await client.analytics.getTranscriptUrl("call_12345");
    * 
    * // Download transcript
    * window.open(url, '_blank');
    * ```
    */
-  async getTranscriptUrl(summaryId: number): Promise<TranscriptResponse> {
-    return this.get<TranscriptResponse>(`/agent/call-history/${summaryId}/transcript`);
+  async getTranscriptUrl(callId: string): Promise<TranscriptResponse> {
+    return this.get<TranscriptResponse>(`/agent/call-history/${callId}/transcript`);
   }
 
   /**

@@ -200,7 +200,39 @@ await voiceai.agents.pause(agent.agent_id);
 
 // Delete an agent
 await voiceai.agents.disable(agent.agent_id);
+
+// Create an outbound call (server-side only)
+// NOTE: Outbound is restricted to approved accounts.
+// If your account is not approved, this endpoint may return 403.
+await voiceai.agents.createOutboundCall({
+  agent_id: agent.agent_id,
+  target_phone_number: '+15551234567',
+  payload: { case_id: 'abc-1' }
+});
 ```
+
+> **Outbound access control:** `POST /api/v1/calls/outbound` is restricted to approved accounts.
+> If you need outbound enabled for your account/workspace, please contact Voice.ai support.
+
+### Outbound Payload Schema (`outbound_call_payload_schema`)
+
+Define `outbound_call_payload_schema` in agent config to validate outbound `payload` fields:
+
+```typescript
+await voiceai.agents.update(agent.agent_id, {
+  config: {
+    allow_outbound_calling: true,
+    outbound_call_payload_schema: {
+      case_id: { type: 'string' },
+      priority: { type: 'integer' }
+    }
+  }
+});
+```
+
+- All declared fields are optional.
+- Unknown payload keys are rejected by the API.
+- `required` is not used for this schema.
 
 ## Knowledge Base
 
@@ -259,7 +291,7 @@ const history = await voiceai.analytics.getCallHistory({
 });
 
 // Get transcript URL
-const transcript = await voiceai.analytics.getTranscriptUrl(summaryId);
+const transcript = await voiceai.analytics.getTranscriptUrl(callId);
 
 // Get stats summary
 const stats = await voiceai.analytics.getStatsSummary();
@@ -351,8 +383,16 @@ await voiceai.agents.update(agentId, {
 });
 ```
 
-Required fields for each webhook tool: `name`, `description`, `parameters`, `url`, `method`, `execution_mode`, `auth_type`.  
-Optional fields: `auth_token`, `headers`, `response`, `timeout`.
+### Webhook configuration requiredness
+
+- `webhooks.events`  
+  - Required: `url`
+  - Optional: `secret`, `events`, `timeout` (default `5`), `enabled` (default `true`)
+- `webhooks.tools`  
+  - Required per tool: `name`, `description`, `parameters`, `url`, `method`, `execution_mode`, `auth_type`
+  - Optional per tool: `auth_token`, `headers`, `response`, `timeout` (default `10`)
+
+If a field is optional and omitted, the service uses the documented default. Prefer omitting optional fields instead of sending `null` unless you explicitly intend to clear behavior in a supported way.
 
 ### Event Types
 
