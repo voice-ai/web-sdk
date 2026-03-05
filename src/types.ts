@@ -363,7 +363,7 @@ export interface AgentConfig {
   vad_activation_threshold?: number | null;
   /** Phone number in E.164 format */
   phone_number?: string | null;
-  /** Whether agent can make outbound calls to saved contacts */
+  /** Whether agent can make outbound calls */
   allow_outbound_calling?: boolean | null;
   /**
    * Optional outbound payload schema.
