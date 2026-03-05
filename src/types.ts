@@ -194,8 +194,20 @@ export interface OutboundCallPayloadFieldSchema {
   [key: string]: any;
 }
 
-/** Outbound call payload schema keyed by payload field name */
-export type OutboundCallPayloadSchema = Record<string, OutboundCallPayloadFieldSchema>;
+/** Shorthand outbound call payload schema keyed by payload field name */
+export type OutboundCallPayloadShorthandSchema = Record<
+  string,
+  OutboundCallPayloadFieldType | OutboundCallPayloadFieldSchema
+>;
+
+/**
+ * Outbound call payload schema.
+ *
+ * Supports either:
+ * - full JSON Schema, e.g. { type: 'object', properties: { case_id: { type: 'string' } }, required: ['case_id'] }
+ * - shorthand field maps, e.g. { case_id: { type: 'string' }, priority: 'integer' }
+ */
+export type OutboundCallPayloadSchema = Record<string, any> | OutboundCallPayloadShorthandSchema;
 
 /** MCP Server configuration */
 export interface MCPServerConfig {
@@ -356,8 +368,9 @@ export interface AgentConfig {
   /**
    * Optional outbound payload schema.
    *
-   * All declared fields are optional. Unknown payload keys are rejected.
-   * Example: { case_id: { type: 'string' }, priority: { type: 'integer' } }
+   * Supports either full JSON Schema or shorthand field maps.
+   * Shorthand example: { case_id: { type: 'string' }, priority: 'integer' }
+   * Full JSON Schema example: { type: 'object', properties: { case_id: { type: 'string' } }, required: ['case_id'] }
    */
   outbound_call_payload_schema?: OutboundCallPayloadSchema | null;
   /** Webhook configuration for event notifications */

@@ -230,9 +230,29 @@ await voiceai.agents.update(agent.agent_id, {
 });
 ```
 
-- All declared fields are optional.
-- Unknown payload keys are rejected by the API.
-- `required` is not used for this schema.
+You can also provide full JSON Schema when you need `required` or other standard keywords:
+
+```typescript
+await voiceai.agents.update(agent.agent_id, {
+  config: {
+    allow_outbound_calling: true,
+    outbound_call_payload_schema: {
+      type: 'object',
+      properties: {
+        case_id: { type: 'string' },
+        priority: { type: 'integer' }
+      },
+      required: ['case_id'],
+      additionalProperties: false
+    }
+  }
+});
+```
+
+- Shorthand field maps are supported:
+  `{'case_id': { type: 'string' }}` or `{'case_id': 'string'}`
+- For shorthand schemas, all declared fields are optional and unknown payload keys are rejected by the API.
+- For full JSON Schema, standard JSON Schema keywords like `required` and `additionalProperties` are honored.
 
 ## Knowledge Base
 
