@@ -500,7 +500,7 @@ function verifyEventWebhook(body: string, headers: Headers, secret: string): boo
 
 ### Inbound Call Webhook Payload
 
-If you configure `webhooks.inbound_call`, Voice.ai sends inbound call routing/personalization requests with this shape:
+If you configure `webhooks.inbound_call`, Voice.ai sends inbound call personalization requests with this shape:
 
 ```typescript
 interface InboundCallWebhookRequest {
@@ -515,7 +515,6 @@ Your endpoint should respond with:
 
 ```typescript
 interface InboundCallWebhookResponse {
-  agent_id?: string;
   dynamic_variables?: Record<string, string | number | boolean>;
   agent_overrides?: Record<string, unknown>;
 }

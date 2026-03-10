@@ -242,7 +242,7 @@ export interface WebhookInboundCallConfig {
   has_secret?: boolean;
   /** Request timeout in seconds (default: 5, range: 1-30) */
   timeout?: number;
-  /** Whether inbound call routing/personalization is active (default: true) */
+  /** Whether inbound call personalization is active (default: true) */
   enabled?: boolean;
   [key: string]: any;
 }
