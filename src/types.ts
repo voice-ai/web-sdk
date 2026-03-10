@@ -28,11 +28,11 @@ export interface ConnectionOptions {
   apiUrl?: string;
   /** API key for authentication */
   apiKey?: string;
-  /** Agent ID to connect to */
+  /** Agent ID to connect to. Mutually exclusive with agentConfig. */
   agentId?: string;
-  /** Agent configuration (for custom/preset agents) */
+  /** Agent configuration for a custom/preset inline agent. Mutually exclusive with agentId and agentOverrides. */
   agentConfig?: Record<string, any>;
-  /** Safe per-call overrides for a saved agent */
+  /** Safe per-call overrides for a saved agent. Use only with agentId, not with agentConfig. */
   agentOverrides?: Record<string, any>;
   /** Runtime prompt variables */
   dynamicVariables?: DynamicVariables;

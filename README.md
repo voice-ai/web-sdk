@@ -72,6 +72,13 @@ await voiceai.connect({
 - `agentOverrides` for safe per-call overrides on a saved agent
 - `dynamicVariables` for optional runtime variables passed at call start
 
+These connection shapes are mutually exclusive where noted:
+
+- Use `agentId` with optional `agentOverrides` and `dynamicVariables` for a saved agent
+- Use `agentConfig` with optional `dynamicVariables` for an inline agent configuration
+- Do not combine `agentId` with `agentConfig`
+- Do not combine `agentConfig` with `agentOverrides`
+
 ### Events
 
 ```typescript

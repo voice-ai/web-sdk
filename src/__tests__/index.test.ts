@@ -201,6 +201,36 @@ describe('VoiceAI', () => {
       
       expect(mockRoom.mock.calls.length).toBeGreaterThan(0);
     });
+
+    it('should reject agentId and agentConfig together before making a request', async () => {
+      const sdk = new VoiceAI({ apiKey: 'vk_test' });
+
+      await expect(
+        sdk.connect({
+          agentId: 'agent-123',
+          agentConfig: { prompt: 'Inline prompt' },
+        })
+      ).rejects.toThrow(
+        'agentId and agentConfig cannot be used together. Use agentId for a saved agent, or agentConfig for an inline agent configuration.'
+      );
+
+      expect(global.fetch).not.toHaveBeenCalled();
+    });
+
+    it('should reject agentConfig and agentOverrides together before making a request', async () => {
+      const sdk = new VoiceAI({ apiKey: 'vk_test' });
+
+      await expect(
+        sdk.connect({
+          agentConfig: { prompt: 'Inline prompt' },
+          agentOverrides: { greeting: 'Hello there' },
+        })
+      ).rejects.toThrow(
+        'agentConfig and agentOverrides cannot be used together. Use agentOverrides only with agentId.'
+      );
+
+      expect(global.fetch).not.toHaveBeenCalled();
+    });
   });
 
   describe('disconnect', () => {
