@@ -32,10 +32,10 @@ export interface ConnectionOptions {
   agentId?: string;
   /** Agent configuration (for custom/preset agents) */
   agentConfig?: Record<string, any>;
-  /** Metadata to pass to the agent */
-  metadata?: string;
-  /** Environment data */
-  environment?: string | Record<string, any>;
+  /** Safe per-call overrides for a saved agent */
+  agentOverrides?: Record<string, any>;
+  /** Runtime prompt variables */
+  dynamicVariables?: DynamicVariables;
   /** Enable automatic microphone publishing (default: true) */
   autoPublishMic?: boolean;
   /** Audio capture options */
@@ -175,39 +175,11 @@ export interface TTSParams {
   [key: string]: any;
 }
 
-/** Allowed types for outbound payload schema fields */
-export type OutboundCallPayloadFieldType =
-  | 'string'
-  | 'number'
-  | 'boolean'
-  | 'integer'
-  | 'object'
-  | 'array';
+/** A supported dynamic variable value passed at call start */
+export type DynamicVariableValue = string | number | boolean;
 
-/**
- * Schema for a single outbound payload field.
- *
- * Note: field presence is always optional; only provided payload keys are validated.
- */
-export interface OutboundCallPayloadFieldSchema {
-  type: OutboundCallPayloadFieldType;
-  [key: string]: any;
-}
-
-/** Shorthand outbound call payload schema keyed by payload field name */
-export type OutboundCallPayloadShorthandSchema = Record<
-  string,
-  OutboundCallPayloadFieldType | OutboundCallPayloadFieldSchema
->;
-
-/**
- * Outbound call payload schema.
- *
- * Supports either:
- * - full JSON Schema, e.g. { type: 'object', properties: { case_id: { type: 'string' } }, required: ['case_id'] }
- * - shorthand field maps, e.g. { case_id: { type: 'string' }, priority: 'integer' }
- */
-export type OutboundCallPayloadSchema = Record<string, any> | OutboundCallPayloadShorthandSchema;
+/** Runtime prompt variables passed at call start */
+export type DynamicVariables = Record<string, DynamicVariableValue>;
 
 /** MCP Server configuration */
 export interface MCPServerConfig {
@@ -256,6 +228,26 @@ export interface WebhookEventsConfig {
 }
 
 /**
+ * Inbound call webhook configuration exposed by the public API.
+ *
+ * `secret` is write-only (accepted in create/update payloads).
+ * `has_secret` is read-only (returned in API responses).
+ */
+export interface WebhookInboundCallConfig {
+  /** Webhook endpoint URL (required) */
+  url: string;
+  /** HMAC-SHA256 signing secret for payload verification (set when configuring) */
+  secret?: string | null;
+  /** Whether a signing secret is configured (returned by API) */
+  has_secret?: boolean;
+  /** Request timeout in seconds (default: 5, range: 1-30) */
+  timeout?: number;
+  /** Whether inbound call routing/personalization is active (default: true) */
+  enabled?: boolean;
+  [key: string]: any;
+}
+
+/**
  * Webhook tool configuration exposed by the public API.
  *
  * Webhook tools are outbound API-call definitions.
@@ -290,6 +282,8 @@ export interface WebhookToolConfig {
 export interface WebhooksConfig {
   /** Event notification webhook configuration */
   events?: WebhookEventsConfig | null;
+  /** Inbound call webhook configuration */
+  inbound_call?: WebhookInboundCallConfig | null;
   /** Tool webhook configurations */
   tools?: WebhookToolConfig[] | null;
   [key: string]: any;
@@ -365,14 +359,6 @@ export interface AgentConfig {
   phone_number?: string | null;
   /** Whether agent can make outbound calls */
   allow_outbound_calling?: boolean | null;
-  /**
-   * Optional outbound payload schema.
-   *
-   * Supports either full JSON Schema or shorthand field maps.
-   * Shorthand example: { case_id: { type: 'string' }, priority: 'integer' }
-   * Full JSON Schema example: { type: 'object', properties: { case_id: { type: 'string' } }, required: ['case_id'] }
-   */
-  outbound_call_payload_schema?: OutboundCallPayloadSchema | null;
   /** Webhook configuration for event notifications */
   webhooks?: WebhooksConfig | null;
   /** MCP servers configuration */
@@ -464,8 +450,8 @@ export interface CreateOutboundCallRequest {
   agent_id: string;
   /** Phone number to dial */
   target_phone_number: string;
-  /** Optional outbound initialization payload validated against agent config */
-  payload?: Record<string, any> | null;
+  /** Optional runtime prompt variables */
+  dynamic_variables?: DynamicVariables | null;
 }
 
 /** Response body for outbound call creation */
@@ -808,8 +794,9 @@ export interface DeleteVoiceResponse {
 /** Request for connection details */
 export interface ConnectionDetailsRequest {
   agent_id?: string | null;
-  metadata?: string | null;
-  environment?: string | null;
+  agent_config?: AgentConfig | null;
+  agent_overrides?: Record<string, any> | null;
+  dynamic_variables?: DynamicVariables | null;
   [key: string]: any;
 }
 

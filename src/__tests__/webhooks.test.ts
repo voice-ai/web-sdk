@@ -2,6 +2,7 @@ import { describe, it, expect, beforeEach, vi, Mock } from 'vitest';
 import VoiceAI from '../index';
 import type {
   WebhookEventsConfig,
+  WebhookCallInitConfig,
   WebhookToolConfig,
   WebhooksConfig,
   WebhookEvent,
@@ -85,6 +86,34 @@ describe('Webhook Types', () => {
     });
   });
 
+  describe('WebhookCallInitConfig', () => {
+    it('should define full config with secret', () => {
+      const config: WebhookCallInitConfig = {
+        url: 'https://example.com/call-init',
+        secret: 'my-secret-key',
+        timeout: 10,
+        enabled: true,
+      };
+
+      expect(config.url).toBe('https://example.com/call-init');
+      expect(config.secret).toBe('my-secret-key');
+      expect(config.timeout).toBe(10);
+      expect(config.enabled).toBe(true);
+    });
+
+    it('should support has_secret field for API responses', () => {
+      const config: WebhookCallInitConfig = {
+        url: 'https://example.com/call-init',
+        has_secret: true,
+        timeout: 5,
+        enabled: true,
+      };
+
+      expect(config.url).toBe('https://example.com/call-init');
+      expect(config.has_secret).toBe(true);
+    });
+  });
+
   describe('WebhooksConfig', () => {
     it('should nest events config', () => {
       const config: WebhooksConfig = {
@@ -133,6 +162,19 @@ describe('Webhook Types', () => {
       expect(config.tools?.[0]?.name).toBe('lookup_order');
     });
 
+    it('should nest inbound_call config', () => {
+      const config: WebhooksConfig = {
+        inbound_call: {
+          url: 'https://example.com/call-init',
+          secret: 'secret123',
+          enabled: true,
+        },
+      };
+
+      expect(config.inbound_call?.url).toBe('https://example.com/call-init');
+      expect(config.inbound_call?.secret).toBe('secret123');
+    });
+
     it('should allow null tools', () => {
       const config: WebhooksConfig = {
         tools: null,
@@ -154,6 +196,18 @@ describe('Webhook Types', () => {
       };
 
       expect(config.events?.has_secret).toBe(true);
+    });
+
+    it('should support has_secret in nested inbound_call config', () => {
+      const config: WebhooksConfig = {
+        inbound_call: {
+          url: 'https://example.com/call-init',
+          has_secret: true,
+          enabled: true,
+        },
+      };
+
+      expect(config.inbound_call?.has_secret).toBe(true);
     });
   });
 
@@ -498,6 +552,51 @@ describe('Webhook API Client', () => {
       expect(requestBody.config.webhooks.tools[0].parameters.properties.order_id.type).toBe('string');
       expect(requestBody.config.webhooks.tools[0].response.properties.status.type).toBe('string');
     });
+
+    it('should create agent with inbound_call config', async () => {
+      const mockAgent = {
+        agent_id: 'agent-123',
+        name: 'Inbound Agent',
+        config: {
+          webhooks: {
+            inbound_call: {
+              url: 'https://example.com/call-init',
+              has_secret: true,
+              timeout: 6,
+              enabled: true,
+            },
+          },
+        },
+        status: 'paused',
+      };
+
+      (global.fetch as Mock).mockResolvedValueOnce({
+        ok: true,
+        headers: new Headers({ 'content-type': 'application/json' }),
+        json: async () => mockAgent,
+      });
+
+      const result = await client.agents.create({
+        name: 'Inbound Agent',
+        config: {
+          webhooks: {
+            inbound_call: {
+              url: 'https://example.com/call-init',
+              secret: 'call-init-secret',
+              timeout: 6,
+              enabled: true,
+            },
+          },
+        },
+      });
+
+      expect(result.config?.webhooks?.inbound_call?.url).toBe('https://example.com/call-init');
+      expect(result.config?.webhooks?.inbound_call?.has_secret).toBe(true);
+
+      const [, request] = (global.fetch as Mock).mock.calls[0];
+      const requestBody = JSON.parse(request.body);
+      expect(requestBody.config.webhooks.inbound_call.secret).toBe('call-init-secret');
+    });
   });
 
   describe('Update agent webhooks', () => {
@@ -660,6 +759,41 @@ describe('Webhook API Client', () => {
       expect(requestBody.config.webhooks.tools[0].timeout).toBe(15);
       expect(requestBody.config.webhooks.tools[0].parameters.properties.region.type).toBe('string');
     });
+
+    it('should update inbound_call config', async () => {
+      const mockAgent = {
+        agent_id: 'agent-123',
+        config: {
+          webhooks: {
+            inbound_call: {
+              url: 'https://new-endpoint.com/call-init',
+              has_secret: true,
+              timeout: 7,
+              enabled: true,
+            },
+          },
+        },
+      };
+
+      (global.fetch as Mock).mockResolvedValueOnce({
+        ok: true,
+        headers: new Headers({ 'content-type': 'application/json' }),
+        json: async () => mockAgent,
+      });
+
+      const result = await client.agents.update('agent-123', {
+        config: {
+          webhooks: {
+            inbound_call: {
+              url: 'https://new-endpoint.com/call-init',
+              timeout: 7,
+            },
+          },
+        },
+      });
+
+      expect(result.config?.webhooks?.inbound_call?.url).toBe('https://new-endpoint.com/call-init');
+    });
   });
 
   describe('Get agent with webhooks', () => {
@@ -731,6 +865,35 @@ describe('Webhook API Client', () => {
       expect(result.config?.webhooks?.tools?.[0]?.method).toBe('POST');
       expect(result.config?.webhooks?.tools?.[0]?.auth_type).toBe('none');
       expect(result.config?.webhooks?.tools?.[0]?.name).toBe('lookup_order');
+    });
+
+    it('should return agent with inbound_call config (has_secret, not secret)', async () => {
+      const mockAgent = {
+        agent_id: 'agent-123',
+        name: 'Test Agent',
+        config: {
+          webhooks: {
+            inbound_call: {
+              url: 'https://example.com/call-init',
+              has_secret: true,
+              timeout: 5,
+              enabled: true,
+            },
+          },
+        },
+        status: 'deployed',
+      };
+
+      (global.fetch as Mock).mockResolvedValueOnce({
+        ok: true,
+        headers: new Headers({ 'content-type': 'application/json' }),
+        json: async () => mockAgent,
+      });
+
+      const result = await client.agents.getById('agent-123');
+
+      expect(result.config?.webhooks?.inbound_call?.has_secret).toBe(true);
+      expect((result.config?.webhooks?.inbound_call as any)?.secret).toBeUndefined();
     });
 
     it('should return agent without webhooks', async () => {

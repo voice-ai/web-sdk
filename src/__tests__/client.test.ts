@@ -180,7 +180,7 @@ describe('VoiceAI REST API (agents, analytics, tts, etc.)', () => {
       const result = await client.agents.createOutboundCall({
         agent_id: 'agent-123',
         target_phone_number: '+15551234567',
-        payload: { case_id: 'abc-1' },
+        dynamic_variables: { case_id: 'abc-1', priority: 2, vip: true },
       });
 
       expect(result).toEqual(mockOutbound);
@@ -191,7 +191,7 @@ describe('VoiceAI REST API (agents, analytics, tts, etc.)', () => {
           body: JSON.stringify({
             agent_id: 'agent-123',
             target_phone_number: '+15551234567',
-            payload: { case_id: 'abc-1' },
+            dynamic_variables: { case_id: 'abc-1', priority: 2, vip: true },
           }),
         })
       );

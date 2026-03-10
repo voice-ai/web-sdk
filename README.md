@@ -207,52 +207,38 @@ await voiceai.agents.disable(agent.agent_id);
 await voiceai.agents.createOutboundCall({
   agent_id: agent.agent_id,
   target_phone_number: '+15551234567',
-  payload: { case_id: 'abc-1' }
+  dynamic_variables: { case_id: 'abc-1' }
 });
 ```
 
 > **Outbound access control:** `POST /api/v1/calls/outbound` is restricted to approved accounts.
 > If you need outbound enabled for your account/workspace, please contact Voice.ai support.
 
-### Outbound Payload Schema (`outbound_call_payload_schema`)
+### Dynamic Variables
 
-Define `outbound_call_payload_schema` in agent config to validate outbound `payload` fields:
-
-```typescript
-await voiceai.agents.update(agent.agent_id, {
-  config: {
-    allow_outbound_calling: true,
-    outbound_call_payload_schema: {
-      case_id: { type: 'string' },
-      priority: { type: 'integer' }
-    }
-  }
-});
-```
-
-You can also provide full JSON Schema when you need `required` or other standard keywords:
+Pass optional `dynamic_variables` at call start and reference them in your prompt with `{{variable_name}}`:
 
 ```typescript
 await voiceai.agents.update(agent.agent_id, {
   config: {
     allow_outbound_calling: true,
-    outbound_call_payload_schema: {
-      type: 'object',
-      properties: {
-        case_id: { type: 'string' },
-        priority: { type: 'integer' }
-      },
-      required: ['case_id'],
-      additionalProperties: false
-    }
+    prompt: 'You are helping {{customer_name}} with order {{order_id}}.'
+  }
+});
+
+await voiceai.connect({
+  agentId: agent.agent_id,
+  dynamicVariables: {
+    customer_name: 'Alice',
+    order_id: '12345'
   }
 });
 ```
 
-- Shorthand field maps are supported:
-  `{'case_id': { type: 'string' }}` or `{'case_id': 'string'}`
-- For shorthand schemas, all declared fields are optional and unknown payload keys are rejected by the API.
-- For full JSON Schema, standard JSON Schema keywords like `required` and `additionalProperties` are honored.
+- `dynamic_variables` must be a flat object of string, number, or boolean values.
+- Extra variables are allowed.
+- Variables that are not referenced by the runtime prompt are ignored.
+- The runtime is responsible for interpolating these variables into the prompt.
 
 ## Knowledge Base
 
@@ -321,9 +307,10 @@ const stats = await voiceai.analytics.getStatsSummary();
 
 Configure webhooks when creating or updating an agent.
 
-`webhooks.events` and `webhooks.tools` use different contracts:
+`webhooks.events`, `webhooks.inbound_call`, and `webhooks.tools` use different contracts:
 
 - `webhooks.events` supports `secret` (write-only on create/update) and `has_secret` (read-only on fetch).
+- `webhooks.inbound_call` supports `secret` (write-only on create/update) and `has_secret` (read-only on fetch).
 - `webhooks.tools` define outbound API calls and do not use `secret`.
 
 ### Configure Webhook Events and Tools
@@ -339,6 +326,12 @@ const agent = await voiceai.agents.create({
         url: 'https://your-server.com/webhooks/voice-events',
         secret: 'your-hmac-secret',  // Event webhook signing secret
         events: ['call.started', 'call.completed'],  // Or omit for all events
+        timeout: 5,
+        enabled: true
+      },
+      inbound_call: {
+        url: 'https://your-server.com/webhooks/inbound-call',
+        secret: 'your-inbound-call-secret',  // Inbound call webhook signing secret
         timeout: 5,
         enabled: true
       },
@@ -408,6 +401,9 @@ await voiceai.agents.update(agentId, {
 - `webhooks.events`  
   - Required: `url`
   - Optional: `secret`, `events`, `timeout` (default `5`), `enabled` (default `true`)
+- `webhooks.inbound_call`  
+  - Required: `url`
+  - Optional: `secret`, `timeout` (default `5`), `enabled` (default `true`)
 - `webhooks.tools`  
   - Required per tool: `name`, `description`, `parameters`, `url`, `method`, `execution_mode`, `auth_type`
   - Optional per tool: `auth_token`, `headers`, `response`, `timeout` (default `10`)
@@ -501,6 +497,33 @@ function verifyEventWebhook(body: string, headers: Headers, secret: string): boo
   return crypto.timingSafeEqual(Buffer.from(expected), Buffer.from(signature));
 }
 ```
+
+### Inbound Call Webhook Payload
+
+If you configure `webhooks.inbound_call`, Voice.ai sends inbound call routing/personalization requests with this shape:
+
+```typescript
+interface InboundCallWebhookRequest {
+  agent_id: string;
+  call_id: string;
+  from_number: string;
+  to_number: string;
+  channel: 'sip' | 'pbx';
+}
+```
+
+Your endpoint should respond with:
+
+```typescript
+interface InboundCallWebhookResponse {
+  agent_id?: string;
+  dynamic_variables?: Record<string, string | number | boolean>;
+  agent_overrides?: Record<string, unknown>;
+}
+```
+
+If you configure `webhooks.inbound_call.secret`, verify the HMAC-SHA256 signature using the same
+`X-Webhook-Timestamp` and `X-Webhook-Signature` headers shown above for event webhooks.
 
 ## Security
 

@@ -444,13 +444,13 @@ describe('VoiceAI', () => {
         expect.any(String),
         expect.objectContaining({
           body: JSON.stringify({
-            metadata: JSON.stringify({ prompt: 'test', voice_id: 'voice-123' }),
+            agent_config: { prompt: 'test', voice_id: 'voice-123' },
           }),
         })
       );
     });
 
-    it('should handle metadata string option', async () => {
+    it('should handle agent overrides', async () => {
       const sdk = new VoiceAI({ apiKey: 'vk_test' });
 
       (global.fetch as Mock).mockResolvedValueOnce({
@@ -462,42 +462,23 @@ describe('VoiceAI', () => {
         }),
       });
 
-      await sdk.connect({ metadata: '{"test": "value"}' });
-
-      expect(global.fetch).toHaveBeenCalledWith(
-        expect.any(String),
-        expect.objectContaining({
-          body: JSON.stringify({ metadata: '{"test": "value"}' }),
-        })
-      );
-    });
-
-    it('should handle environment as string', async () => {
-      const sdk = new VoiceAI({ apiKey: 'vk_test' });
-
-      (global.fetch as Mock).mockResolvedValueOnce({
-        ok: true,
-        json: async () => ({
-          server_url: 'wss://test.com',
-          participant_token: 'token123',
-          call_id: 'call123',
-        }),
+      await sdk.connect({
+        agentId: 'agent-123',
+        agentOverrides: { greeting: 'Hello there' },
       });
-
-      await sdk.connect({ agentId: 'agent-123', environment: '{"env": "test"}' });
 
       expect(global.fetch).toHaveBeenCalledWith(
         expect.any(String),
         expect.objectContaining({
           body: JSON.stringify({
             agent_id: 'agent-123',
-            environment: '{"env": "test"}',
+            agent_overrides: { greeting: 'Hello there' },
           }),
         })
       );
     });
 
-    it('should handle environment as object', async () => {
+    it('should handle dynamic variables', async () => {
       const sdk = new VoiceAI({ apiKey: 'vk_test' });
 
       (global.fetch as Mock).mockResolvedValueOnce({
@@ -509,14 +490,17 @@ describe('VoiceAI', () => {
         }),
       });
 
-      await sdk.connect({ agentId: 'agent-123', environment: { env: 'test' } });
+      await sdk.connect({
+        agentId: 'agent-123',
+        dynamicVariables: { customer_name: 'Alice', order_id: 12345, is_priority: true },
+      });
 
       expect(global.fetch).toHaveBeenCalledWith(
         expect.any(String),
         expect.objectContaining({
           body: JSON.stringify({
             agent_id: 'agent-123',
-            environment: JSON.stringify({ env: 'test' }),
+            dynamic_variables: { customer_name: 'Alice', order_id: 12345, is_priority: true },
           }),
         })
       );

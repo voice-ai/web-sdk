@@ -579,14 +579,13 @@ export class VoiceAI {
     const requestData: Record<string, any> = {};
     if (options.agentId) requestData.agent_id = options.agentId;
     if (options.agentConfig) {
-      requestData.metadata = JSON.stringify(options.agentConfig);
-    } else if (options.metadata) {
-      requestData.metadata = options.metadata;
+      requestData.agent_config = options.agentConfig;
     }
-    if (options.environment) {
-      requestData.environment = typeof options.environment === 'string' 
-        ? options.environment 
-        : JSON.stringify(options.environment);
+    if (options.agentOverrides) {
+      requestData.agent_overrides = options.agentOverrides;
+    }
+    if (options.dynamicVariables) {
+      requestData.dynamic_variables = options.dynamicVariables;
     }
 
     const apiKey = options.apiKey || this.apiKey;
