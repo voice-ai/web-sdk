@@ -54,7 +54,23 @@ await voiceai.connect({
 
 // Test mode: preview paused agents before deploying
 await voiceai.connect({ agentId: 'agent-123', testMode: true });
+
+// Apply safe per-call overrides to a saved agent
+await voiceai.connect({
+  agentId: 'agent-123',
+  agentOverrides: {
+    prompt: 'You are helping with premium support only.',
+    greeting: 'Thanks for calling premium support.',
+  },
+});
 ```
+
+`connect()` supports these top-level request shapes:
+
+- `agentId` for a saved agent
+- `agentConfig` for an inline agent configuration
+- `agentOverrides` for safe per-call overrides on a saved agent
+- `dynamicVariables` for optional runtime variables passed at call start
 
 ### Events
 
