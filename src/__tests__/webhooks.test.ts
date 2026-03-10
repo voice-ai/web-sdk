@@ -2,7 +2,7 @@ import { describe, it, expect, beforeEach, vi, Mock } from 'vitest';
 import VoiceAI from '../index';
 import type {
   WebhookEventsConfig,
-  WebhookCallInitConfig,
+  WebhookInboundCallConfig,
   WebhookToolConfig,
   WebhooksConfig,
   WebhookEvent,
@@ -86,9 +86,9 @@ describe('Webhook Types', () => {
     });
   });
 
-  describe('WebhookCallInitConfig', () => {
+  describe('WebhookInboundCallConfig', () => {
     it('should define full config with secret', () => {
-      const config: WebhookCallInitConfig = {
+      const config: WebhookInboundCallConfig = {
         url: 'https://example.com/call-init',
         secret: 'my-secret-key',
         timeout: 10,
@@ -102,7 +102,7 @@ describe('Webhook Types', () => {
     });
 
     it('should support has_secret field for API responses', () => {
-      const config: WebhookCallInitConfig = {
+      const config: WebhookInboundCallConfig = {
         url: 'https://example.com/call-init',
         has_secret: true,
         timeout: 5,
