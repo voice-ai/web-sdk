@@ -508,7 +508,6 @@ interface InboundCallWebhookRequest {
   call_id: string;
   from_number: string;
   to_number: string;
-  channel: 'sip' | 'pbx';
 }
 ```
 
