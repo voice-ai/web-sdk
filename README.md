@@ -54,7 +54,30 @@ await voiceai.connect({
 
 // Test mode: preview paused agents before deploying
 await voiceai.connect({ agentId: 'agent-123', testMode: true });
+
+// Apply safe per-call overrides to a saved agent
+await voiceai.connect({
+  agentId: 'agent-123',
+  agentOverrides: {
+    prompt: 'You are helping with premium support only.',
+    greeting: 'Thanks for calling premium support.',
+  },
+});
 ```
+
+`connect()` supports these top-level request shapes:
+
+- `agentId` for a saved agent
+- `agentConfig` for an inline agent configuration
+- `agentOverrides` for safe per-call overrides on a saved agent
+- `dynamicVariables` for optional runtime variables passed at call start
+
+These connection shapes are mutually exclusive where noted:
+
+- Use `agentId` with optional `agentOverrides` and `dynamicVariables` for a saved agent
+- Use `agentConfig` with optional `dynamicVariables` for an inline agent configuration
+- Do not combine `agentId` with `agentConfig`
+- Do not combine `agentConfig` with `agentOverrides`
 
 ### Events
 
@@ -200,7 +223,45 @@ await voiceai.agents.pause(agent.agent_id);
 
 // Delete an agent
 await voiceai.agents.disable(agent.agent_id);
+
+// Create an outbound call (server-side only)
+// NOTE: Outbound is restricted to approved accounts.
+// If your account is not approved, this endpoint may return 403.
+await voiceai.agents.createOutboundCall({
+  agent_id: agent.agent_id,
+  target_phone_number: '+15551234567',
+  dynamic_variables: { case_id: 'abc-1' }
+});
 ```
+
+> **Outbound access control:** `POST /api/v1/calls/outbound` is restricted to approved accounts.
+> If you need outbound enabled for your account/workspace, please contact Voice.ai support.
+
+### Dynamic Variables
+
+Pass optional `dynamic_variables` at call start and reference them in your prompt with `{{variable_name}}`:
+
+```typescript
+await voiceai.agents.update(agent.agent_id, {
+  config: {
+    allow_outbound_calling: true,
+    prompt: 'You are helping {{customer_name}} with order {{order_id}}.'
+  }
+});
+
+await voiceai.connect({
+  agentId: agent.agent_id,
+  dynamicVariables: {
+    customer_name: 'Alice',
+    order_id: '12345'
+  }
+});
+```
+
+- `dynamic_variables` must be a flat object of string, number, or boolean values.
+- Extra variables are allowed.
+- Variables that are not referenced by the runtime prompt are ignored.
+- The runtime is responsible for interpolating these variables into the prompt.
 
 ## Knowledge Base
 
@@ -259,7 +320,7 @@ const history = await voiceai.analytics.getCallHistory({
 });
 
 // Get transcript URL
-const transcript = await voiceai.analytics.getTranscriptUrl(summaryId);
+const transcript = await voiceai.analytics.getTranscriptUrl(callId);
 
 // Get stats summary
 const stats = await voiceai.analytics.getStatsSummary();
@@ -269,9 +330,10 @@ const stats = await voiceai.analytics.getStatsSummary();
 
 Configure webhooks when creating or updating an agent.
 
-`webhooks.events` and `webhooks.tools` use different contracts:
+`webhooks.events`, `webhooks.inbound_call`, and `webhooks.tools` use different contracts:
 
 - `webhooks.events` supports `secret` (write-only on create/update) and `has_secret` (read-only on fetch).
+- `webhooks.inbound_call` supports `secret` (write-only on create/update) and `has_secret` (read-only on fetch).
 - `webhooks.tools` define outbound API calls and do not use `secret`.
 
 ### Configure Webhook Events and Tools
@@ -287,6 +349,12 @@ const agent = await voiceai.agents.create({
         url: 'https://your-server.com/webhooks/voice-events',
         secret: 'your-hmac-secret',  // Event webhook signing secret
         events: ['call.started', 'call.completed'],  // Or omit for all events
+        timeout: 5,
+        enabled: true
+      },
+      inbound_call: {
+        url: 'https://your-server.com/webhooks/inbound-call',
+        secret: 'your-inbound-call-secret',  // Inbound call webhook signing secret
         timeout: 5,
         enabled: true
       },
@@ -351,8 +419,19 @@ await voiceai.agents.update(agentId, {
 });
 ```
 
-Required fields for each webhook tool: `name`, `description`, `parameters`, `url`, `method`, `execution_mode`, `auth_type`.  
-Optional fields: `auth_token`, `headers`, `response`, `timeout`.
+### Webhook configuration requiredness
+
+- `webhooks.events`  
+  - Required: `url`
+  - Optional: `secret`, `events`, `timeout` (default `5`), `enabled` (default `true`)
+- `webhooks.inbound_call`  
+  - Required: `url`
+  - Optional: `secret`, `timeout` (default `5`), `enabled` (default `true`)
+- `webhooks.tools`  
+  - Required per tool: `name`, `description`, `parameters`, `url`, `method`, `execution_mode`, `auth_type`
+  - Optional per tool: `auth_token`, `headers`, `response`, `timeout` (default `10`)
+
+If a field is optional and omitted, the service uses the documented default. Prefer omitting optional fields instead of sending `null` unless you explicitly intend to clear behavior in a supported way.
 
 ### Event Types
 
@@ -441,6 +520,31 @@ function verifyEventWebhook(body: string, headers: Headers, secret: string): boo
   return crypto.timingSafeEqual(Buffer.from(expected), Buffer.from(signature));
 }
 ```
+
+### Inbound Call Webhook Payload
+
+If you configure `webhooks.inbound_call`, Voice.ai sends inbound call personalization requests with this shape:
+
+```typescript
+interface InboundCallWebhookRequest {
+  agent_id: string;
+  call_id: string;
+  from_number: string;
+  to_number: string;
+}
+```
+
+Your endpoint should respond with:
+
+```typescript
+interface InboundCallWebhookResponse {
+  dynamic_variables?: Record<string, string | number | boolean>;
+  agent_overrides?: Record<string, unknown>;
+}
+```
+
+If you configure `webhooks.inbound_call.secret`, verify the HMAC-SHA256 signature using the same
+`X-Webhook-Timestamp` and `X-Webhook-Signature` headers shown above for event webhooks.
 
 ## Security
 

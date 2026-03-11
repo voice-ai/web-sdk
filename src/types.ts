@@ -28,14 +28,14 @@ export interface ConnectionOptions {
   apiUrl?: string;
   /** API key for authentication */
   apiKey?: string;
-  /** Agent ID to connect to */
+  /** Agent ID to connect to. Mutually exclusive with agentConfig. */
   agentId?: string;
-  /** Agent configuration (for custom/preset agents) */
+  /** Agent configuration for a custom/preset inline agent. Mutually exclusive with agentId and agentOverrides. */
   agentConfig?: Record<string, any>;
-  /** Metadata to pass to the agent */
-  metadata?: string;
-  /** Environment data */
-  environment?: string | Record<string, any>;
+  /** Safe per-call overrides for a saved agent. Use only with agentId, not with agentConfig. */
+  agentOverrides?: Record<string, any>;
+  /** Runtime prompt variables */
+  dynamicVariables?: DynamicVariables;
   /** Enable automatic microphone publishing (default: true) */
   autoPublishMic?: boolean;
   /** Audio capture options */
@@ -175,6 +175,12 @@ export interface TTSParams {
   [key: string]: any;
 }
 
+/** A supported dynamic variable value passed at call start */
+export type DynamicVariableValue = string | number | boolean;
+
+/** Runtime prompt variables passed at call start */
+export type DynamicVariables = Record<string, DynamicVariableValue>;
+
 /** MCP Server configuration */
 export interface MCPServerConfig {
   /** Human-readable name for the server (required) */
@@ -222,6 +228,26 @@ export interface WebhookEventsConfig {
 }
 
 /**
+ * Inbound call webhook configuration exposed by the public API.
+ *
+ * `secret` is write-only (accepted in create/update payloads).
+ * `has_secret` is read-only (returned in API responses).
+ */
+export interface WebhookInboundCallConfig {
+  /** Webhook endpoint URL (required) */
+  url: string;
+  /** HMAC-SHA256 signing secret for payload verification (set when configuring) */
+  secret?: string | null;
+  /** Whether a signing secret is configured (returned by API) */
+  has_secret?: boolean;
+  /** Request timeout in seconds (default: 5, range: 1-30) */
+  timeout?: number;
+  /** Whether inbound call personalization is active (default: true) */
+  enabled?: boolean;
+  [key: string]: any;
+}
+
+/**
  * Webhook tool configuration exposed by the public API.
  *
  * Webhook tools are outbound API-call definitions.
@@ -256,6 +282,8 @@ export interface WebhookToolConfig {
 export interface WebhooksConfig {
   /** Event notification webhook configuration */
   events?: WebhookEventsConfig | null;
+  /** Inbound call webhook configuration */
+  inbound_call?: WebhookInboundCallConfig | null;
   /** Tool webhook configurations */
   tools?: WebhookToolConfig[] | null;
   [key: string]: any;
@@ -329,6 +357,8 @@ export interface AgentConfig {
   vad_activation_threshold?: number | null;
   /** Phone number in E.164 format */
   phone_number?: string | null;
+  /** Whether agent can make outbound calls */
+  allow_outbound_calling?: boolean | null;
   /** Webhook configuration for event notifications */
   webhooks?: WebhooksConfig | null;
   /** MCP servers configuration */
@@ -413,6 +443,28 @@ export interface AgentConnectionStatusResponse {
   [key: string]: any;
 }
 
+
+/** Request body for creating an outbound call */
+export interface CreateOutboundCallRequest {
+  /** Agent ID to make the outbound call */
+  agent_id: string;
+  /** Phone number to dial */
+  target_phone_number: string;
+  /** Optional runtime prompt variables */
+  dynamic_variables?: DynamicVariables | null;
+}
+
+/** Response body for outbound call creation */
+export interface CreateOutboundCallResponse {
+  call_id: string;
+  room_name: string;
+  agent_id: string;
+  target_phone_number: string;
+  status: string;
+  initiated_at: string;
+  [key: string]: any;
+}
+
 /** Agent status summary */
 export interface AgentStatusSummary {
   deployed: number;
@@ -459,6 +511,7 @@ export interface ListAgentsOptions extends PaginationOptions {
 /** Call history item */
 export interface CallHistoryItem {
   id: number;
+  call_id?: string | null;
   agent_id?: string | null;
   agent_name?: string | null;
   call_timestamp: string;
@@ -741,8 +794,9 @@ export interface DeleteVoiceResponse {
 /** Request for connection details */
 export interface ConnectionDetailsRequest {
   agent_id?: string | null;
-  metadata?: string | null;
-  environment?: string | null;
+  agent_config?: AgentConfig | null;
+  agent_overrides?: Record<string, any> | null;
+  dynamic_variables?: DynamicVariables | null;
   [key: string]: any;
 }
 
