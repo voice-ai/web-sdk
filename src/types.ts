@@ -28,12 +28,8 @@ export interface ConnectionOptions {
   apiUrl?: string;
   /** API key for authentication */
   apiKey?: string;
-  /** Agent ID to connect to. Mutually exclusive with agentConfig. */
+  /** Agent ID to connect to. */
   agentId?: string;
-  /** Agent configuration for a custom/preset inline agent. Mutually exclusive with agentId and agentOverrides. */
-  agentConfig?: Record<string, any>;
-  /** Safe per-call overrides for a saved agent. Use only with agentId, not with agentConfig. */
-  agentOverrides?: Record<string, any>;
   /** Runtime prompt variables */
   dynamicVariables?: DynamicVariables;
   /** Enable automatic microphone publishing (default: true) */
@@ -172,6 +168,10 @@ export interface TTSParams {
   temperature?: number | null;
   /** Nucleus sampling parameter (0.0-1.0). Controls diversity of output. */
   top_p?: number | null;
+  /** Managed pronunciation dictionary ID stored in the Voice.ai API. */
+  dictionary_id?: string | null;
+  /** Optional managed pronunciation dictionary version. Defaults to the latest active version. */
+  dictionary_version?: number | null;
   [key: string]: any;
 }
 
@@ -738,6 +738,10 @@ export interface SynthesizeRequest {
   model?: string | null;
   /** Language code in ISO 639-1 format, e.g. 'en', 'es', 'fr' (default: 'en') */
   language?: string;
+  /** Managed pronunciation dictionary ID stored in the Voice.ai API. */
+  dictionary_id?: string | null;
+  /** Optional managed pronunciation dictionary version. Defaults to the latest active version. */
+  dictionary_version?: number | null;
   [key: string]: any;
 }
 
@@ -787,6 +791,88 @@ export interface DeleteVoiceResponse {
   voice_id: string;
 }
 
+export interface PronunciationRuleAliasInput {
+  id?: string | null;
+  type: 'alias';
+  string_to_replace: string;
+  alias: string;
+  case_sensitive?: boolean;
+  word_boundaries?: boolean;
+}
+
+export interface PronunciationRulePhonemeInput {
+  id?: string | null;
+  type: 'phoneme';
+  string_to_replace: string;
+  phoneme: string;
+  alphabet: string;
+  case_sensitive?: boolean;
+  word_boundaries?: boolean;
+}
+
+export type PronunciationRuleInput =
+  | PronunciationRuleAliasInput
+  | PronunciationRulePhonemeInput;
+
+export interface PronunciationRuleAlias {
+  id: string;
+  type: 'alias';
+  string_to_replace: string;
+  alias: string;
+  case_sensitive: boolean;
+  word_boundaries: boolean;
+}
+
+export interface PronunciationRulePhoneme {
+  id: string;
+  type: 'phoneme';
+  string_to_replace: string;
+  phoneme: string;
+  alphabet: string;
+  case_sensitive: boolean;
+  word_boundaries: boolean;
+}
+
+export type PronunciationRule =
+  | PronunciationRuleAlias
+  | PronunciationRulePhoneme;
+
+export interface PronunciationDictionaryVersionSummary {
+  version: number;
+  version_id: string;
+  rules_num: number;
+  source_type: string;
+  created_at_unix: number;
+}
+
+export interface PronunciationDictionarySummary {
+  id: string;
+  name: string;
+  language: string;
+  current_version: number;
+  current_version_id: string;
+  current_version_rules_num: number;
+  created_at_unix: number;
+  updated_at_unix: number;
+}
+
+export interface PronunciationDictionaryDetail extends PronunciationDictionarySummary {
+  rules: PronunciationRule[];
+  versions: PronunciationDictionaryVersionSummary[];
+}
+
+export interface PronunciationDictionaryRulesMutationResponse {
+  id: string;
+  current_version: number;
+  current_version_id: string;
+  current_version_rules_num: number;
+}
+
+export interface DeletePronunciationDictionaryResponse {
+  id: string;
+  deleted: boolean;
+}
+
 // =============================================================================
 // CONNECTION DETAILS TYPES
 // =============================================================================
@@ -794,8 +880,6 @@ export interface DeleteVoiceResponse {
 /** Request for connection details */
 export interface ConnectionDetailsRequest {
   agent_id?: string | null;
-  agent_config?: AgentConfig | null;
-  agent_overrides?: Record<string, any> | null;
   dynamic_variables?: DynamicVariables | null;
   [key: string]: any;
 }

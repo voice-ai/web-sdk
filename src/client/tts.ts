@@ -17,6 +17,11 @@ import type {
   VoiceResponse,
   UpdateVoiceOptions,
   DeleteVoiceResponse,
+  PronunciationRuleInput,
+  PronunciationDictionarySummary,
+  PronunciationDictionaryDetail,
+  PronunciationDictionaryRulesMutationResponse,
+  DeletePronunciationDictionaryResponse,
 } from '../types';
 
 /**
@@ -275,5 +280,83 @@ export class TTSClient extends BaseClient {
    */
   async deleteVoice(voiceId: string): Promise<DeleteVoiceResponse> {
     return this.httpDelete<DeleteVoiceResponse>(`/tts/voice/${encodeURIComponent(voiceId)}`);
+  }
+
+  // ==========================================================================
+  // PRONUNCIATION DICTIONARY MANAGEMENT
+  // ==========================================================================
+
+  async listPronunciationDictionaries(): Promise<PronunciationDictionarySummary[]> {
+    return this.get<PronunciationDictionarySummary[]>('/tts/pronunciation-dictionaries');
+  }
+
+  async getPronunciationDictionary(dictionaryId: string): Promise<PronunciationDictionaryDetail> {
+    return this.get<PronunciationDictionaryDetail>(`/tts/pronunciation-dictionaries/${encodeURIComponent(dictionaryId)}`);
+  }
+
+  async createPronunciationDictionaryFromFile(options: {
+    file: Blob | File;
+    name: string;
+    language?: string;
+  }): Promise<PronunciationDictionaryDetail> {
+    const formData = new FormData();
+    formData.append('file', options.file);
+    formData.append('name', options.name);
+    if (options.language !== undefined) {
+      formData.append('language', options.language);
+    }
+    return this.postFormData<PronunciationDictionaryDetail>('/tts/pronunciation-dictionaries/add-from-file', formData);
+  }
+
+  async createPronunciationDictionaryFromRules(options: {
+    name: string;
+    language?: string;
+    rules: PronunciationRuleInput[];
+  }): Promise<PronunciationDictionaryDetail> {
+    return this.post<PronunciationDictionaryDetail>('/tts/pronunciation-dictionaries/add-from-rules', options);
+  }
+
+  async updatePronunciationDictionary(dictionaryId: string, options: {
+    name: string;
+  }): Promise<PronunciationDictionaryDetail> {
+    return this.patch<PronunciationDictionaryDetail>(`/tts/pronunciation-dictionaries/${encodeURIComponent(dictionaryId)}`, options);
+  }
+
+  async deletePronunciationDictionary(dictionaryId: string): Promise<DeletePronunciationDictionaryResponse> {
+    return this.httpDelete<DeletePronunciationDictionaryResponse>(`/tts/pronunciation-dictionaries/${encodeURIComponent(dictionaryId)}`);
+  }
+
+  async downloadPronunciationDictionaryVersion(dictionaryId: string, version: number): Promise<Blob> {
+    return this.getForBlob(`/tts/pronunciation-dictionaries/${encodeURIComponent(dictionaryId)}/${version}/download`);
+  }
+
+  async setPronunciationDictionaryRules(
+    dictionaryId: string,
+    rules: PronunciationRuleInput[]
+  ): Promise<PronunciationDictionaryRulesMutationResponse> {
+    return this.post<PronunciationDictionaryRulesMutationResponse>(
+      `/tts/pronunciation-dictionaries/${encodeURIComponent(dictionaryId)}/set-rules`,
+      { rules }
+    );
+  }
+
+  async addPronunciationDictionaryRules(
+    dictionaryId: string,
+    rules: PronunciationRuleInput[]
+  ): Promise<PronunciationDictionaryRulesMutationResponse> {
+    return this.post<PronunciationDictionaryRulesMutationResponse>(
+      `/tts/pronunciation-dictionaries/${encodeURIComponent(dictionaryId)}/add-rules`,
+      { rules }
+    );
+  }
+
+  async removePronunciationDictionaryRules(
+    dictionaryId: string,
+    ruleIds: string[]
+  ): Promise<PronunciationDictionaryRulesMutationResponse> {
+    return this.post<PronunciationDictionaryRulesMutationResponse>(
+      `/tts/pronunciation-dictionaries/${encodeURIComponent(dictionaryId)}/remove-rules`,
+      { rule_ids: ruleIds }
+    );
   }
 }

@@ -576,22 +576,12 @@ export class VoiceAI {
       : '/connection/connection-details';
     const endpoint = `${url}${endpointPath}`;
 
-    if (options.agentId && options.agentConfig) {
-      throw new Error('agentId and agentConfig cannot be used together. Use agentId for a saved agent, or agentConfig for an inline agent configuration.');
-    }
-
-    if (options.agentConfig && options.agentOverrides) {
-      throw new Error('agentConfig and agentOverrides cannot be used together. Use agentOverrides only with agentId.');
+    if (!options.agentId) {
+      throw new Error('agentId is required.');
     }
 
     const requestData: Record<string, any> = {};
     if (options.agentId) requestData.agent_id = options.agentId;
-    if (options.agentConfig) {
-      requestData.agent_config = options.agentConfig;
-    }
-    if (options.agentOverrides) {
-      requestData.agent_overrides = options.agentOverrides;
-    }
     if (options.dynamicVariables) {
       requestData.dynamic_variables = options.dynamicVariables;
     }

@@ -661,6 +661,110 @@ describe('VoiceAI REST API (agents, analytics, tts, etc.)', () => {
       );
     });
 
+    it('should list pronunciation dictionaries', async () => {
+      const mockDictionaries = [
+        {
+          id: 'dict-1',
+          name: 'Medical Terms',
+          language: 'en',
+          current_version: 2,
+          current_version_id: 'dict-1:2',
+          current_version_rules_num: 1,
+          created_at_unix: 1234,
+          updated_at_unix: 1235,
+        },
+      ];
+      (global.fetch as Mock).mockResolvedValueOnce({
+        ok: true,
+        headers: new Headers({ 'content-type': 'application/json' }),
+        json: async () => mockDictionaries,
+      });
+
+      const result = await client.tts.listPronunciationDictionaries();
+      expect(result).toEqual(mockDictionaries);
+      expect(global.fetch).toHaveBeenCalledWith(
+        'https://dev.voice.ai/api/v1/tts/pronunciation-dictionaries',
+        expect.objectContaining({ method: 'GET' })
+      );
+    });
+
+    it('should create pronunciation dictionary from file', async () => {
+      const mockDictionary = {
+        id: 'dict-1',
+        name: 'From File',
+        language: 'en',
+        current_version: 1,
+        current_version_id: 'dict-1:1',
+        current_version_rules_num: 0,
+        created_at_unix: 1234,
+        updated_at_unix: 1234,
+        rules: [],
+        versions: [],
+      };
+      (global.fetch as Mock).mockResolvedValueOnce({
+        ok: true,
+        headers: new Headers({ 'content-type': 'application/json' }),
+        json: async () => mockDictionary,
+      });
+
+      const file = new Blob(['<lexicon></lexicon>'], { type: 'application/pls+xml' });
+      const result = await client.tts.createPronunciationDictionaryFromFile({
+        file,
+        name: 'From File',
+        language: 'en',
+      });
+
+      expect(result).toEqual(mockDictionary);
+      const fetchCall = (global.fetch as Mock).mock.calls[0];
+      expect(fetchCall[0]).toBe('https://dev.voice.ai/api/v1/tts/pronunciation-dictionaries/add-from-file');
+      expect(fetchCall[1].method).toBe('POST');
+      expect(fetchCall[1].body).toBeInstanceOf(FormData);
+    });
+
+    it('should set pronunciation dictionary rules', async () => {
+      const mockResponse = {
+        id: 'dict-1',
+        current_version: 3,
+        current_version_id: 'dict-1:3',
+        current_version_rules_num: 2,
+      };
+      (global.fetch as Mock).mockResolvedValueOnce({
+        ok: true,
+        headers: new Headers({ 'content-type': 'application/json' }),
+        json: async () => mockResponse,
+      });
+
+      const result = await client.tts.setPronunciationDictionaryRules('dict-1', [
+        { type: 'alias', string_to_replace: 'Thailand', alias: 'tie-land' },
+      ]);
+
+      expect(result).toEqual(mockResponse);
+      expect(global.fetch).toHaveBeenCalledWith(
+        'https://dev.voice.ai/api/v1/tts/pronunciation-dictionaries/dict-1/set-rules',
+        expect.objectContaining({
+          method: 'POST',
+          body: JSON.stringify({
+            rules: [{ type: 'alias', string_to_replace: 'Thailand', alias: 'tie-land' }],
+          }),
+        })
+      );
+    });
+
+    it('should download pronunciation dictionary version as blob', async () => {
+      const mockBlob = new Blob(['pls data'], { type: 'application/pls+xml' });
+      (global.fetch as Mock).mockResolvedValueOnce({
+        ok: true,
+        blob: async () => mockBlob,
+      });
+
+      const result = await client.tts.downloadPronunciationDictionaryVersion('dict-1', 4);
+      expect(result).toBe(mockBlob);
+      expect(global.fetch).toHaveBeenCalledWith(
+        'https://dev.voice.ai/api/v1/tts/pronunciation-dictionaries/dict-1/4/download',
+        expect.objectContaining({ method: 'GET' })
+      );
+    });
+
     it('should delete voice', async () => {
       const mockResponse = { status: 'deleted', voice_id: 'voice-123' };
       (global.fetch as Mock).mockResolvedValueOnce({
@@ -691,6 +795,8 @@ describe('VoiceAI REST API (agents, analytics, tts, etc.)', () => {
         voice_id: 'voice-123',
         language: 'en',
         audio_format: 'mp3',
+        dictionary_id: 'dict-1',
+        dictionary_version: 3,
       });
 
       expect(result).toBeInstanceOf(Blob);
@@ -703,6 +809,8 @@ describe('VoiceAI REST API (agents, analytics, tts, etc.)', () => {
             voice_id: 'voice-123',
             language: 'en',
             audio_format: 'mp3',
+            dictionary_id: 'dict-1',
+            dictionary_version: 3,
           }),
         })
       );

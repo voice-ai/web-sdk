@@ -202,32 +202,14 @@ describe('VoiceAI', () => {
       expect(mockRoom.mock.calls.length).toBeGreaterThan(0);
     });
 
-    it('should reject agentId and agentConfig together before making a request', async () => {
+    it('should reject missing agentId before making a request', async () => {
       const sdk = new VoiceAI({ apiKey: 'vk_test' });
 
       await expect(
         sdk.connect({
-          agentId: 'agent-123',
-          agentConfig: { prompt: 'Inline prompt' },
+          dynamicVariables: { customer_name: 'Alice' },
         })
-      ).rejects.toThrow(
-        'agentId and agentConfig cannot be used together. Use agentId for a saved agent, or agentConfig for an inline agent configuration.'
-      );
-
-      expect(global.fetch).not.toHaveBeenCalled();
-    });
-
-    it('should reject agentConfig and agentOverrides together before making a request', async () => {
-      const sdk = new VoiceAI({ apiKey: 'vk_test' });
-
-      await expect(
-        sdk.connect({
-          agentConfig: { prompt: 'Inline prompt' },
-          agentOverrides: { greeting: 'Hello there' },
-        })
-      ).rejects.toThrow(
-        'agentConfig and agentOverrides cannot be used together. Use agentOverrides only with agentId.'
-      );
+      ).rejects.toThrow('agentId is required.');
 
       expect(global.fetch).not.toHaveBeenCalled();
     });
@@ -454,33 +436,19 @@ describe('VoiceAI', () => {
   });
 
   describe('connect with different options', () => {
-    it('should handle agentConfig option', async () => {
+    it('should require agentId for API-backed connect', async () => {
       const sdk = new VoiceAI({ apiKey: 'vk_test' });
 
-      (global.fetch as Mock).mockResolvedValueOnce({
-        ok: true,
-        json: async () => ({
-          server_url: 'wss://test.com',
-          participant_token: 'token123',
-          call_id: 'call123',
-        }),
-      });
-
-      await sdk.connect({
-        agentConfig: { prompt: 'test', voice_id: 'voice-123' },
-      });
-
-      expect(global.fetch).toHaveBeenCalledWith(
-        expect.any(String),
-        expect.objectContaining({
-          body: JSON.stringify({
-            agent_config: { prompt: 'test', voice_id: 'voice-123' },
-          }),
+      await expect(
+        sdk.connect({
+          dynamicVariables: { customer_name: 'Alice' },
         })
-      );
+      ).rejects.toThrow('agentId is required.');
+
+      expect(global.fetch).not.toHaveBeenCalled();
     });
 
-    it('should handle agent overrides', async () => {
+    it('should send agentId and dynamic variables only', async () => {
       const sdk = new VoiceAI({ apiKey: 'vk_test' });
 
       (global.fetch as Mock).mockResolvedValueOnce({
@@ -494,7 +462,7 @@ describe('VoiceAI', () => {
 
       await sdk.connect({
         agentId: 'agent-123',
-        agentOverrides: { greeting: 'Hello there' },
+        dynamicVariables: { customer_name: 'Alice' },
       });
 
       expect(global.fetch).toHaveBeenCalledWith(
@@ -502,7 +470,7 @@ describe('VoiceAI', () => {
         expect.objectContaining({
           body: JSON.stringify({
             agent_id: 'agent-123',
-            agent_overrides: { greeting: 'Hello there' },
+            dynamic_variables: { customer_name: 'Alice' },
           }),
         })
       );
