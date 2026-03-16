@@ -668,8 +668,6 @@ describe('VoiceAI REST API (agents, analytics, tts, etc.)', () => {
           name: 'Medical Terms',
           language: 'en',
           current_version: 2,
-          current_version_id: 'dict-1:2',
-          current_version_rules_num: 1,
           created_at_unix: 1234,
           updated_at_unix: 1235,
         },
@@ -694,8 +692,6 @@ describe('VoiceAI REST API (agents, analytics, tts, etc.)', () => {
         name: 'From File',
         language: 'en',
         current_version: 1,
-        current_version_id: 'dict-1:1',
-        current_version_rules_num: 0,
         created_at_unix: 1234,
         updated_at_unix: 1234,
         rules: [],
@@ -724,9 +720,21 @@ describe('VoiceAI REST API (agents, analytics, tts, etc.)', () => {
     it('should set pronunciation dictionary rules', async () => {
       const mockResponse = {
         id: 'dict-1',
+        name: 'Medical Terms',
+        language: 'en',
         current_version: 3,
-        current_version_id: 'dict-1:3',
-        current_version_rules_num: 2,
+        created_at_unix: 1234,
+        updated_at_unix: 1236,
+        rules: [
+          {
+            id: 'rule-1',
+            word: 'Thailand',
+            replacement: 'tie-land',
+            ipa: null,
+            case_sensitive: true,
+          },
+        ],
+        versions: [{ version: 3, created_at_unix: 1236 }],
       };
       (global.fetch as Mock).mockResolvedValueOnce({
         ok: true,
@@ -735,7 +743,7 @@ describe('VoiceAI REST API (agents, analytics, tts, etc.)', () => {
       });
 
       const result = await client.tts.setPronunciationDictionaryRules('dict-1', [
-        { type: 'alias', string_to_replace: 'Thailand', alias: 'tie-land' },
+        { word: 'Thailand', replacement: 'tie-land' },
       ]);
 
       expect(result).toEqual(mockResponse);
@@ -744,7 +752,41 @@ describe('VoiceAI REST API (agents, analytics, tts, etc.)', () => {
         expect.objectContaining({
           method: 'POST',
           body: JSON.stringify({
-            rules: [{ type: 'alias', string_to_replace: 'Thailand', alias: 'tie-land' }],
+            rules: [{ word: 'Thailand', replacement: 'tie-land' }],
+          }),
+        })
+      );
+    });
+
+    it('should remove pronunciation dictionary rules by rule_ids', async () => {
+      const mockResponse = {
+        id: 'dict-1',
+        name: 'Medical Terms',
+        language: 'en',
+        current_version: 4,
+        created_at_unix: 1234,
+        updated_at_unix: 1237,
+        rules: [],
+        versions: [{ version: 4, created_at_unix: 1237 }],
+      };
+      (global.fetch as Mock).mockResolvedValueOnce({
+        ok: true,
+        headers: new Headers({ 'content-type': 'application/json' }),
+        json: async () => mockResponse,
+      });
+
+      const result = await client.tts.removePronunciationDictionaryRules('dict-1', [
+        'rule-1',
+        'rule-2',
+      ]);
+
+      expect(result).toEqual(mockResponse);
+      expect(global.fetch).toHaveBeenCalledWith(
+        'https://dev.voice.ai/api/v1/tts/pronunciation-dictionaries/dict-1/remove-rules',
+        expect.objectContaining({
+          method: 'POST',
+          body: JSON.stringify({
+            rule_ids: ['rule-1', 'rule-2'],
           }),
         })
       );

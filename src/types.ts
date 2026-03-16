@@ -791,57 +791,24 @@ export interface DeleteVoiceResponse {
   voice_id: string;
 }
 
-export interface PronunciationRuleAliasInput {
+export interface PronunciationRuleInput {
   id?: string | null;
-  type: 'alias';
-  string_to_replace: string;
-  alias: string;
+  word: string;
+  replacement: string;
+  ipa?: string | null;
   case_sensitive?: boolean;
-  word_boundaries?: boolean;
 }
 
-export interface PronunciationRulePhonemeInput {
-  id?: string | null;
-  type: 'phoneme';
-  string_to_replace: string;
-  phoneme: string;
-  alphabet: string;
-  case_sensitive?: boolean;
-  word_boundaries?: boolean;
-}
-
-export type PronunciationRuleInput =
-  | PronunciationRuleAliasInput
-  | PronunciationRulePhonemeInput;
-
-export interface PronunciationRuleAlias {
+export interface PronunciationRule {
   id: string;
-  type: 'alias';
-  string_to_replace: string;
-  alias: string;
+  word: string;
+  replacement: string;
+  ipa: string | null;
   case_sensitive: boolean;
-  word_boundaries: boolean;
 }
-
-export interface PronunciationRulePhoneme {
-  id: string;
-  type: 'phoneme';
-  string_to_replace: string;
-  phoneme: string;
-  alphabet: string;
-  case_sensitive: boolean;
-  word_boundaries: boolean;
-}
-
-export type PronunciationRule =
-  | PronunciationRuleAlias
-  | PronunciationRulePhoneme;
 
 export interface PronunciationDictionaryVersionSummary {
   version: number;
-  version_id: string;
-  rules_num: number;
-  source_type: string;
   created_at_unix: number;
 }
 
@@ -850,8 +817,6 @@ export interface PronunciationDictionarySummary {
   name: string;
   language: string;
   current_version: number;
-  current_version_id: string;
-  current_version_rules_num: number;
   created_at_unix: number;
   updated_at_unix: number;
 }
@@ -859,13 +824,6 @@ export interface PronunciationDictionarySummary {
 export interface PronunciationDictionaryDetail extends PronunciationDictionarySummary {
   rules: PronunciationRule[];
   versions: PronunciationDictionaryVersionSummary[];
-}
-
-export interface PronunciationDictionaryRulesMutationResponse {
-  id: string;
-  current_version: number;
-  current_version_id: string;
-  current_version_rules_num: number;
 }
 
 export interface DeletePronunciationDictionaryResponse {

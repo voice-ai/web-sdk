@@ -20,7 +20,6 @@ import type {
   PronunciationRuleInput,
   PronunciationDictionarySummary,
   PronunciationDictionaryDetail,
-  PronunciationDictionaryRulesMutationResponse,
   DeletePronunciationDictionaryResponse,
 } from '../types';
 
@@ -333,8 +332,8 @@ export class TTSClient extends BaseClient {
   async setPronunciationDictionaryRules(
     dictionaryId: string,
     rules: PronunciationRuleInput[]
-  ): Promise<PronunciationDictionaryRulesMutationResponse> {
-    return this.post<PronunciationDictionaryRulesMutationResponse>(
+  ): Promise<PronunciationDictionaryDetail> {
+    return this.post<PronunciationDictionaryDetail>(
       `/tts/pronunciation-dictionaries/${encodeURIComponent(dictionaryId)}/set-rules`,
       { rules }
     );
@@ -343,8 +342,8 @@ export class TTSClient extends BaseClient {
   async addPronunciationDictionaryRules(
     dictionaryId: string,
     rules: PronunciationRuleInput[]
-  ): Promise<PronunciationDictionaryRulesMutationResponse> {
-    return this.post<PronunciationDictionaryRulesMutationResponse>(
+  ): Promise<PronunciationDictionaryDetail> {
+    return this.post<PronunciationDictionaryDetail>(
       `/tts/pronunciation-dictionaries/${encodeURIComponent(dictionaryId)}/add-rules`,
       { rules }
     );
@@ -353,8 +352,8 @@ export class TTSClient extends BaseClient {
   async removePronunciationDictionaryRules(
     dictionaryId: string,
     ruleIds: string[]
-  ): Promise<PronunciationDictionaryRulesMutationResponse> {
-    return this.post<PronunciationDictionaryRulesMutationResponse>(
+  ): Promise<PronunciationDictionaryDetail> {
+    return this.post<PronunciationDictionaryDetail>(
       `/tts/pronunciation-dictionaries/${encodeURIComponent(dictionaryId)}/remove-rules`,
       { rule_ids: ruleIds }
     );
