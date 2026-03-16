@@ -28,12 +28,8 @@ export interface ConnectionOptions {
   apiUrl?: string;
   /** API key for authentication */
   apiKey?: string;
-  /** Agent ID to connect to. Mutually exclusive with agentConfig. */
+  /** Agent ID to connect to. */
   agentId?: string;
-  /** Agent configuration for a custom/preset inline agent. Mutually exclusive with agentId and agentOverrides. */
-  agentConfig?: Record<string, any>;
-  /** Safe per-call overrides for a saved agent. Use only with agentId, not with agentConfig. */
-  agentOverrides?: Record<string, any>;
   /** Runtime prompt variables */
   dynamicVariables?: DynamicVariables;
   /** Enable automatic microphone publishing (default: true) */
@@ -172,6 +168,10 @@ export interface TTSParams {
   temperature?: number | null;
   /** Nucleus sampling parameter (0.0-1.0). Controls diversity of output. */
   top_p?: number | null;
+  /** Managed pronunciation dictionary ID stored in the Voice.ai API. */
+  dictionary_id?: string | null;
+  /** Optional managed pronunciation dictionary version. Defaults to the latest active version. */
+  dictionary_version?: number | null;
   [key: string]: any;
 }
 
@@ -738,6 +738,10 @@ export interface SynthesizeRequest {
   model?: string | null;
   /** Language code in ISO 639-1 format, e.g. 'en', 'es', 'fr' (default: 'en') */
   language?: string;
+  /** Managed pronunciation dictionary ID stored in the Voice.ai API. */
+  dictionary_id?: string | null;
+  /** Optional managed pronunciation dictionary version. Defaults to the latest active version. */
+  dictionary_version?: number | null;
   [key: string]: any;
 }
 
@@ -787,6 +791,46 @@ export interface DeleteVoiceResponse {
   voice_id: string;
 }
 
+export interface PronunciationRuleInput {
+  id?: string | null;
+  word: string;
+  replacement: string;
+  ipa?: string | null;
+  case_sensitive?: boolean;
+}
+
+export interface PronunciationRule {
+  id: string;
+  word: string;
+  replacement: string;
+  ipa: string | null;
+  case_sensitive: boolean;
+}
+
+export interface PronunciationDictionaryVersionSummary {
+  version: number;
+  created_at_unix: number;
+}
+
+export interface PronunciationDictionarySummary {
+  id: string;
+  name: string;
+  language: string;
+  current_version: number;
+  created_at_unix: number;
+  updated_at_unix: number;
+}
+
+export interface PronunciationDictionaryDetail extends PronunciationDictionarySummary {
+  rules: PronunciationRule[];
+  versions: PronunciationDictionaryVersionSummary[];
+}
+
+export interface DeletePronunciationDictionaryResponse {
+  id: string;
+  deleted: boolean;
+}
+
 // =============================================================================
 // CONNECTION DETAILS TYPES
 // =============================================================================
@@ -794,8 +838,6 @@ export interface DeleteVoiceResponse {
 /** Request for connection details */
 export interface ConnectionDetailsRequest {
   agent_id?: string | null;
-  agent_config?: AgentConfig | null;
-  agent_overrides?: Record<string, any> | null;
   dynamic_variables?: DynamicVariables | null;
   [key: string]: any;
 }

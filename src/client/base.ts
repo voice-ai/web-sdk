@@ -156,6 +156,47 @@ export class BaseClient {
   }
 
   /**
+   * Perform GET request that returns binary data (Blob)
+   */
+  protected async getForBlob(path: string, params?: Record<string, any>): Promise<Blob> {
+    const url = new URL(`${this.apiUrl}${path}`);
+
+    if (params) {
+      Object.entries(params).forEach(([key, value]) => {
+        if (value !== undefined && value !== null) {
+          if (Array.isArray(value)) {
+            value.forEach(v => url.searchParams.append(key, String(v)));
+          } else {
+            url.searchParams.append(key, String(value));
+          }
+        }
+      });
+    }
+
+    const response = await fetch(url.toString(), {
+      method: 'GET',
+      headers: this.getHeaders(),
+    });
+
+    if (!response.ok) {
+      let errorData: ErrorResponse | null = null;
+      try {
+        errorData = await response.json();
+      } catch {
+        // Not JSON
+      }
+
+      throw new VoiceAIError(
+        errorData?.error || errorData?.detail || `Request failed with status ${response.status}`,
+        response.status,
+        errorData?.code
+      );
+    }
+
+    return response.blob();
+  }
+
+  /**
    * Perform POST request
    */
   protected async post<T>(path: string, body?: any): Promise<T> {
