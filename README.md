@@ -54,30 +54,13 @@ await voiceai.connect({
 
 // Test mode: preview paused agents before deploying
 await voiceai.connect({ agentId: 'agent-123', testMode: true });
-
-// Apply safe per-call overrides to a saved agent
-await voiceai.connect({
-  agentId: 'agent-123',
-  agentOverrides: {
-    prompt: 'You are helping with premium support only.',
-    greeting: 'Thanks for calling premium support.',
-  },
-});
 ```
 
 `connect()` supports these top-level request shapes:
 
 - `agentId` for a saved agent
-- `agentConfig` for an inline agent configuration
-- `agentOverrides` for safe per-call overrides on a saved agent
 - `dynamicVariables` for optional runtime variables passed at call start
-
-These connection shapes are mutually exclusive where noted:
-
-- Use `agentId` with optional `agentOverrides` and `dynamicVariables` for a saved agent
-- Use `agentConfig` with optional `dynamicVariables` for an inline agent configuration
-- Do not combine `agentId` with `agentConfig`
-- Do not combine `agentConfig` with `agentOverrides`
+- `testMode` to preview paused agents before deploying
 
 ### Events
 
@@ -166,6 +149,18 @@ const reader = response.body!.getReader();
 // Read chunks: reader.read()
 ```
 
+Managed pronunciation dictionaries can be attached to direct TTS requests and saved agent configs with:
+
+```typescript
+const audio = await voiceai.tts.synthesize({
+  text: 'Schedule a follow-up for Thailand.',
+  voice_id: 'voice-123',
+  language: 'en',
+  dictionary_id: 'dict-123',
+  dictionary_version: 2,
+});
+```
+
 ### Voice Management
 
 ```typescript
@@ -188,6 +183,55 @@ await voiceai.tts.updateVoice('voice-123', { name: 'Renamed', voice_visibility: 
 
 // Delete voice
 await voiceai.tts.deleteVoice('voice-123');
+```
+
+### Pronunciation Dictionaries
+
+```typescript
+// List dictionaries
+const dictionaries = await voiceai.tts.listPronunciationDictionaries();
+
+// Get one dictionary
+const dictionary = await voiceai.tts.getPronunciationDictionary('dict-123');
+
+// Create from rules
+const created = await voiceai.tts.createPronunciationDictionaryFromRules({
+  name: 'Medical Terms',
+  language: 'en',
+  rules: [
+    { word: 'Thailand', replacement: 'tie-land' },
+    { word: 'router', replacement: 'row-ter', ipa: 'ˈraʊtɚ', case_sensitive: false },
+  ],
+});
+
+// Create from a .pls file
+await voiceai.tts.createPronunciationDictionaryFromFile({
+  file: dictionaryFile,
+  name: 'Imported Dictionary',
+  language: 'en',
+});
+
+// Rename
+await voiceai.tts.updatePronunciationDictionary('dict-123', { name: 'Medical Terms v2' });
+
+// Replace all rules
+await voiceai.tts.setPronunciationDictionaryRules('dict-123', [
+  { word: 'SQL', replacement: 'sequel', case_sensitive: false },
+]);
+
+// Add rules
+await voiceai.tts.addPronunciationDictionaryRules('dict-123', [
+  { word: 'gif', replacement: 'jif', case_sensitive: false },
+]);
+
+// Remove rules by stable rule ID
+await voiceai.tts.removePronunciationDictionaryRules('dict-123', ['rule-1', 'rule-2']);
+
+// Download a specific version as a Blob
+const plsBlob = await voiceai.tts.downloadPronunciationDictionaryVersion('dict-123', 3);
+
+// Delete
+await voiceai.tts.deletePronunciationDictionary('dict-123');
 ```
 
 ## Agent Management
@@ -539,7 +583,6 @@ Your endpoint should respond with:
 ```typescript
 interface InboundCallWebhookResponse {
   dynamic_variables?: Record<string, string | number | boolean>;
-  agent_overrides?: Record<string, unknown>;
 }
 ```
 
