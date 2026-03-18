@@ -37,7 +37,7 @@ The SDK provides a unified interface for:
 - [**Agent Management**](#agent-management) — Create, update, deploy, and manage agents
 - [**Knowledge Base**](#knowledge-base) — Manage RAG documents for your agents
 - [**Phone Numbers**](#phone-numbers) — Search and manage phone numbers
-- [**Analytics**](#analytics) — Access call history and transcripts
+- [**Analytics**](#analytics) — Access call history, transcripts, and recordings
 - [**Webhooks**](#webhooks) — Receive real-time notifications for call events
 - [**Security**](#security) — Backend token exchange, endToken, CORS
 - [**Error Handling**](#error-handling) — Connection and API error handling
@@ -246,6 +246,7 @@ const agent = await voiceai.agents.create({
   config: {
     prompt: 'You are a helpful customer support agent.',
     greeting: 'Hello! How can I help you today?',
+    recording_enabled: true,
     tts_params: {
       voice_id: 'my-voice-id',
       model: 'voiceai-tts-v1-latest',
@@ -280,6 +281,10 @@ await voiceai.agents.createOutboundCall({
 
 > **Outbound access control:** `POST /api/v1/calls/outbound` is restricted to approved accounts.
 > If you need outbound enabled for your account/workspace, please contact Voice.ai support.
+
+> **Update behavior:** `voiceai.agents.update()` is a partial update. Omit a field to leave it unchanged. For nullable scalar fields like `prompt`, `greeting`, `phone_number`, or nested `tts_params` fields, pass `null` to clear the current value. See section-specific notes below for webhook clearing behavior.
+
+> **Recording:** `config.recording_enabled` defaults to `true` for new agents. Set it to `false` to disable recording for future calls.
 
 ### Dynamic Variables
 
@@ -365,6 +370,12 @@ const history = await voiceai.analytics.getCallHistory({
 
 // Get transcript URL
 const transcript = await voiceai.analytics.getTranscriptUrl(callId);
+
+// Get recording status or URL
+const recording = await voiceai.analytics.getRecordingUrl(callId);
+if (recording.status === 'ready' && recording.url) {
+  window.open(recording.url, '_blank');
+}
 
 // Get stats summary
 const stats = await voiceai.analytics.getStatsSummary();
@@ -468,12 +479,15 @@ await voiceai.agents.update(agentId, {
 - `webhooks.events`  
   - Required: `url`
   - Optional: `secret`, `events`, `timeout` (default `5`), `enabled` (default `true`)
+  - On update: omit `events` to preserve the existing event webhook, set `events: null` to remove it, set `secret: null` to clear only the signing secret, and use `events: []` to receive all event types
 - `webhooks.inbound_call`  
   - Required: `url`
   - Optional: `secret`, `timeout` (default `5`), `enabled` (default `true`)
+  - On update: omit `inbound_call` to preserve it, set `inbound_call: null` to remove it, and set `secret: null` to clear only the signing secret
 - `webhooks.tools`  
   - Required per tool: `name`, `description`, `parameters`, `url`, `method`, `execution_mode`, `auth_type`
   - Optional per tool: `auth_token`, `headers`, `response`, `timeout` (default `10`)
+  - On update: omit `tools` to leave the current tool list unchanged, set `tools: null` to clear all tools, or pass a new array to replace the current list
 
 If a field is optional and omitted, the service uses the documented default. Prefer omitting optional fields instead of sending `null` unless you explicitly intend to clear behavior in a supported way.
 

@@ -260,6 +260,24 @@ describe('VoiceAI REST API (agents, analytics, tts, etc.)', () => {
       );
     });
 
+    it('should get recording URL', async () => {
+      const mockRecording = { status: 'ready', url: 'https://example.com/recording.mp3' };
+      (global.fetch as Mock).mockResolvedValueOnce({
+        ok: true,
+        headers: new Headers({ 'content-type': 'application/json' }),
+        json: async () => mockRecording,
+      });
+
+      const result = await client.analytics.getRecordingUrl('call-12345');
+
+      expect(result.status).toBe('ready');
+      expect(result.url).toBe('https://example.com/recording.mp3');
+      expect(global.fetch).toHaveBeenCalledWith(
+        'https://dev.voice.ai/api/v1/agent/call-history/call-12345/recording',
+        expect.objectContaining({ method: 'GET' })
+      );
+    });
+
     it('should get stats summary', async () => {
       const mockStats = {
         total_agents: 10,
