@@ -549,9 +549,12 @@ export interface TranscriptResponse {
   url: string;
 }
 
+/** Recording availability status */
+export type RecordingStatus = 'ready' | 'processing' | 'not_recorded';
+
 /** Recording status response */
 export interface RecordingResponse {
-  status: string;
+  status: RecordingStatus;
   url?: string | null;
 }
 
