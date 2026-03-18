@@ -357,6 +357,8 @@ export interface AgentConfig {
   vad_activation_threshold?: number | null;
   /** Phone number in E.164 format */
   phone_number?: string | null;
+  /** Whether call recording is enabled */
+  recording_enabled?: boolean | null;
   /** Whether agent can make outbound calls */
   allow_outbound_calling?: boolean | null;
   /** Webhook configuration for event notifications */
@@ -545,6 +547,15 @@ export interface GetCallHistoryOptions extends PaginationOptions {
 /** Transcript URL response */
 export interface TranscriptResponse {
   url: string;
+}
+
+/** Recording availability status */
+export type RecordingStatus = 'ready' | 'processing' | 'not_recorded';
+
+/** Recording status response */
+export interface RecordingResponse {
+  status: RecordingStatus;
+  url?: string | null;
 }
 
 // =============================================================================

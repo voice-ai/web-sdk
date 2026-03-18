@@ -4,6 +4,7 @@
  * Provides methods for:
  * - Getting call history with filters
  * - Getting transcript URLs
+ * - Getting recording status and URLs
  * - Getting agent stats summary
  */
 
@@ -12,6 +13,7 @@ import type {
   PaginatedCallHistoryResponse,
   GetCallHistoryOptions,
   TranscriptResponse,
+  RecordingResponse,
   AgentStatsSummaryResponse,
 } from '../types';
 
@@ -80,6 +82,25 @@ export class AnalyticsClient extends BaseClient {
    */
   async getTranscriptUrl(callId: string): Promise<TranscriptResponse> {
     return this.get<TranscriptResponse>(`/agent/call-history/${callId}/transcript`);
+  }
+
+  /**
+   * Get recording status or download URL for a call
+   *
+   * @param callId - The call identifier
+   * @returns Object with recording status and optional URL
+   *
+   * @example
+   * ```typescript
+   * const recording = await client.analytics.getRecordingUrl("call_12345");
+   *
+   * if (recording.status === 'ready' && recording.url) {
+   *   window.open(recording.url, '_blank');
+   * }
+   * ```
+   */
+  async getRecordingUrl(callId: string): Promise<RecordingResponse> {
+    return this.get<RecordingResponse>(`/agent/call-history/${callId}/recording`);
   }
 
   /**

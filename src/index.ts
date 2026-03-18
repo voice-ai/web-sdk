@@ -904,6 +904,7 @@ export type {
   Agent,
   VoiceResponse,
   VoiceStatus,
+  RecordingStatus,
 } from './types';
 
 // =============================================================================
