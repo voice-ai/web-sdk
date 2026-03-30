@@ -35,6 +35,7 @@ The SDK provides a unified interface for:
 - [**Real-time Voice**](#real-time-voice) — Connect to voice agents with live transcription
 - [**Text-to-Speech**](#text-to-speech) — Generate speech and manage voices
 - [**Agent Management**](#agent-management) — Create, update, deploy, and manage agents
+- [**Managed Tools**](#managed-tools) — Connect first-party managed integrations such as Google Calendar, Sheets, and Gmail
 - [**Knowledge Base**](#knowledge-base) — Manage RAG documents for your agents
 - [**Phone Numbers**](#phone-numbers) — Search and manage phone numbers
 - [**Analytics**](#analytics) — Access call history, transcripts, and recordings
@@ -167,7 +168,7 @@ const audio = await voiceai.tts.synthesize({
 // List all available voices
 const voices = await voiceai.tts.listVoices();
 
-// Clone a voice from audio file (MP3/WAV/OGG, max 7.5MB)
+// Clone a voice from audio file (MP3/WAV/M4A, max 7.5MB)
 const voice = await voiceai.tts.cloneVoice({
   file: audioFile,
   name: 'My Voice',
@@ -279,6 +280,126 @@ await voiceai.agents.createOutboundCall({
 });
 ```
 
+## Managed Tools
+
+The managed tools surface is generic. Today it covers Google Calendar, Google Sheets, and Gmail.
+
+Managed tools are exposed under `voiceai.managedTools`.
+
+Today the SDK includes one Google entry:
+
+- `voiceai.managedTools.google`
+  - Use it to start OAuth, check status, and disconnect Google managed tools for an agent
+  - Pass the individual managed tool configs under `managedTools.google_calendar`, `managedTools.google_sheets`, and `managedTools.google_gmail`
+
+Use the managed Google surface to connect an agent to Google Calendar, Sheets, or Gmail.
+
+```typescript
+import VoiceAI, {
+  GOOGLE_CALENDAR_OPERATION_OPTIONS,
+  IANA_TIMEZONE_OPTIONS,
+  getGoogleReconnectState,
+  hasEnabledGoogleManagedTools,
+} from '@voice-ai-labs/web-sdk';
+
+const voiceai = new VoiceAI({ apiKey: 'vk_your_api_key' });
+
+const start = await voiceai.managedTools.google.startOAuth('agent-123', {
+  returnUrl: window.location.href,
+  managedTools: {
+    google_calendar: {
+      enabled: true,
+      timezone: 'America/Los_Angeles',
+      selected_operations: ['google_calendar_check_availability', 'google_calendar_create_event'],
+    },
+  },
+});
+
+window.open(start.auth_url, 'google-oauth', 'popup,width=540,height=720');
+
+const status = await voiceai.managedTools.google.getStatus('agent-123');
+const reconnect = getGoogleReconnectState(
+  {
+    google_calendar: {
+      enabled: true,
+      selected_operations: ['google_calendar_check_availability', 'google_calendar_create_event'],
+    },
+  },
+  status
+);
+```
+
+Connection flow:
+
+1. Call `startOAuth(...)` with the agent ID, `returnUrl`, and the individual Google managed tool configs you want enabled.
+2. Open the returned `auth_url` in a popup or browser tab.
+3. Google redirects to the VoiceAI backend callback.
+4. The backend completes OAuth and then returns the user to your `returnUrl`.
+5. Refresh or poll `voiceai.managedTools.google.getStatus(agentId)` to confirm the connection state.
+
+Connection semantics:
+
+- `startOAuth(...)` manages Google managed-tools access for the agent
+- `managedTools.google_calendar`, `managedTools.google_sheets`, and `managedTools.google_gmail` decide which Google capabilities should be available
+- enabling more Google operations later can require reconnecting to grant additional access
+- `disconnect(...)` removes Google managed-tools access for that agent
+
+Available helpers:
+
+- `voiceai.managedTools.google.startOAuth(agentId, { returnUrl, managedTools })`
+- `voiceai.managedTools.google.getStatus(agentId)`
+- `voiceai.managedTools.google.disconnect(agentId)`
+- `GOOGLE_CALENDAR_OPERATION_OPTIONS`, `GOOGLE_SHEETS_OPERATION_OPTIONS`, `GOOGLE_GMAIL_OPERATION_OPTIONS`
+- `getManagedToolSelectedOperations(...)`, `toggleManagedToolOperation(...)`
+- `getRequiredGoogleScopes(...)`, `getGoogleReconnectState(...)`, `hasEnabledGoogleManagedTools(...)`
+- `IANA_TIMEZONE_OPTIONS` for timezone selectors. Each option includes `{ value, label, offsetMinutes }`, where `value` is the canonical IANA timezone like `America/Los_Angeles`
+
+Managed tool config fields:
+
+- `google_calendar`
+  - `enabled: boolean`
+  - `default_calendar_id?: string`
+  - `timezone?: string`
+  - `selected_operations?: GoogleCalendarOperation[]`
+- `google_sheets`
+  - `enabled: boolean`
+  - `spreadsheet_id?: string`
+  - `sheet_name?: string`
+  - `selected_operations?: GoogleSheetsOperation[]`
+- `google_gmail`
+  - `enabled: boolean`
+  - `selected_operations?: GoogleGmailOperation[]`
+
+Supported Calendar operations:
+
+- `google_calendar_check_availability` — Check whether a calendar is free during a time window
+- `google_calendar_list_upcoming_events` — Read the next upcoming events from the calendar
+- `google_calendar_create_event` — Create a new calendar event
+- `google_calendar_update_event` — Modify an existing calendar event
+- `google_calendar_cancel_event` — Cancel or delete an existing calendar event
+
+Supported Sheets operations:
+
+- `google_sheets_append_row` — Write a new row into a spreadsheet
+- `google_sheets_list_sheets` — List worksheet tabs and spreadsheet metadata
+- `google_sheets_read_rows` — Read rows from a worksheet range
+
+Supported Gmail operations:
+
+- `google_gmail_search_messages` — Search Gmail and return readable message summaries
+- `google_gmail_get_message` — Fetch a specific Gmail message by ID
+- `google_gmail_send_email` — Send an email from the connected Gmail account
+
+Notes:
+
+- Google Calendar, Sheets, and Gmail all use the `voiceai.managedTools.google` surface.
+- If you enable additional Google operations later, `getStatus()` / `getGoogleReconnectState(...)` may report `reconnect_required` until you reconnect and grant the additional access.
+- `voiceai.managedTools.google.disconnect(agentId)` removes Google managed-tools access for the agent.
+- `returnUrl` is your app/frontend return target after the VoiceAI backend callback completes. It is not the Google-registered OAuth redirect URI.
+- Calendar `timezone` should be an IANA timezone like `America/Los_Angeles`
+- If `selected_operations` is omitted, the SDK helpers treat that managed tool config as “all supported operations selected”
+- If `selected_operations` is an empty array, the managed tool config remains present but requests no additional provider scopes
+
 > **Outbound access control:** `POST /api/v1/calls/outbound` is restricted to approved accounts.
 > If you need outbound enabled for your account/workspace, please contact Voice.ai support.
 
@@ -365,7 +486,10 @@ await voiceai.phoneNumbers.release('+14155551234');
 const history = await voiceai.analytics.getCallHistory({
   page: 1,
   limit: 20,
-  agent_ids: ['agent-123']
+  agent_ids: ['agent-123'],
+  agent_name: 'support',
+  sort_by: 'duration',
+  sort_dir: 'desc'
 });
 
 // Get transcript URL
@@ -385,9 +509,9 @@ const stats = await voiceai.analytics.getStatsSummary();
 
 Configure webhooks when creating or updating an agent.
 
-`webhooks.events`, `webhooks.inbound_call`, and `webhooks.tools` use different contracts:
+`webhooks.events[]`, `webhooks.inbound_call`, and `webhooks.tools` use different contracts:
 
-- `webhooks.events` supports `secret` (write-only on create/update) and `has_secret` (read-only on fetch).
+- `webhooks.events[]` supports `secret` (write-only on create/update) and `has_secret` (read-only on fetch), with fan-out across enabled endpoints.
 - `webhooks.inbound_call` supports `secret` (write-only on create/update) and `has_secret` (read-only on fetch).
 - `webhooks.tools` define outbound API calls and do not use `secret`.
 
@@ -400,13 +524,15 @@ const agent = await voiceai.agents.create({
   config: {
     prompt: 'You are a helpful support agent.',
     webhooks: {
-      events: {
-        url: 'https://your-server.com/webhooks/voice-events',
-        secret: 'your-hmac-secret',  // Event webhook signing secret
-        events: ['call.started', 'call.completed'],  // Or omit for all events
-        timeout: 5,
-        enabled: true
-      },
+      events: [
+        {
+          url: 'https://your-server.com/webhooks/voice-events',
+          secret: 'your-hmac-secret',  // Event webhook signing secret
+          events: ['call.started', 'call.completed'],  // Or omit for all events
+          timeout: 5,
+          enabled: true
+        }
+      ],
       inbound_call: {
         url: 'https://your-server.com/webhooks/inbound-call',
         secret: 'your-inbound-call-secret',  // Inbound call webhook signing secret
@@ -446,11 +572,13 @@ const agent = await voiceai.agents.create({
 await voiceai.agents.update(agentId, {
   config: {
     webhooks: {
-      events: {
-        url: 'https://your-server.com/webhooks',
-        events: ['call.completed'],  // Only receive call.completed
-        enabled: true
-      },
+      events: [
+        {
+          url: 'https://your-server.com/webhooks',
+          events: ['call.completed'],  // Only receive call.completed
+          enabled: true
+        }
+      ],
       tools: [
         {
           name: 'search_knowledge_base',
@@ -476,10 +604,12 @@ await voiceai.agents.update(agentId, {
 
 ### Webhook configuration requiredness
 
-- `webhooks.events`  
-  - Required: `url`
-  - Optional: `secret`, `events`, `timeout` (default `5`), `enabled` (default `true`)
-  - On update: omit `events` to preserve the existing event webhook, set `events: null` to remove it, set `secret: null` to clear only the signing secret, and use `events: []` to receive all event types
+- `webhooks.events[]`  
+  - Required per endpoint: `url`
+  - Optional per endpoint: `secret`, `events`, `timeout` (default `5`), `enabled` (default `true`)
+  - On update: omit `webhooks.events` to preserve the current list, set `webhooks.events: null` to remove it, or pass a full array to replace the list
+  - When replacing the array: omitted `secret` values are preserved only for entries whose `url` exactly matches an existing endpoint, `secret: null` clears the signing secret for that endpoint, and duplicate URLs are invalid
+  - Use `events: []` on an endpoint to receive all event types
 - `webhooks.inbound_call`  
   - Required: `url`
   - Optional: `secret`, `timeout` (default `5`), `enabled` (default `true`)
@@ -520,8 +650,10 @@ interface WebhookEvent {
 
 For webhook tools, Voice.ai makes outbound HTTP requests directly to each tool `url`.
 
-- `method: 'GET'`: tool arguments are sent as query parameters.
-- `method: 'POST' | 'PUT' | 'PATCH' | 'DELETE'`: tool arguments are sent as JSON body.
+- `method: 'GET' | 'DELETE'`: tool arguments are sent as query parameters.
+- `method: 'POST' | 'PUT' | 'PATCH'`: tool arguments are sent as JSON body.
+- For body methods, Voice.ai always sends `Content-Type: application/json`.
+- If you configure a `Content-Type` header in `headers`, it is ignored for webhook tools.
 - Metadata headers are always sent:
   - `X-VoiceAI-Request-Id`
   - `X-VoiceAI-Tool-Name`
@@ -552,7 +684,7 @@ X-VoiceAI-Call-Id: call_123
 - `auth_type: 'none'`: no auth headers added.
 - `auth_type: 'bearer_token'`: sends `Authorization: Bearer <auth_token>`.
 - `auth_type: 'api_key'`: sends `X-API-Key: <auth_token>`.
-- `auth_type: 'custom_headers'`: sends your configured `headers` map.
+- `auth_type: 'custom_headers'`: sends your configured `headers` map, except `Content-Type`, which is agent-managed for body methods.
 
 ### Webhook Tool Response Behavior
 
@@ -561,7 +693,7 @@ X-VoiceAI-Call-Id: call_123
 
 ### Signature Verification (Event Webhooks)
 
-If you configure `webhooks.events.secret`, verify the HMAC-SHA256 signature:
+If you configure `webhooks.events[].secret`, verify the HMAC-SHA256 signature:
 
 ```typescript
 import crypto from 'crypto';

@@ -184,7 +184,7 @@ export class TTSClient extends BaseClient {
   /**
    * Clone a voice from a reference audio file
    * 
-   * Accepts an audio file (MP3, WAV, or OGG, max 7.5MB) and creates
+   * Accepts an audio file (MP3, WAV, or M4A, max 7.5MB) and creates
    * a cloned voice. The voice starts in PENDING status and moves to
    * PROCESSING, then AVAILABLE once ready.
    * 

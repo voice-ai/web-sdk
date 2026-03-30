@@ -8,5 +8,6 @@ export { VoiceAIError } from './base';
 export { AgentClient } from './agents';
 export { AnalyticsClient } from './analytics';
 export { KnowledgeBaseClient } from './knowledge-base';
+export { ManagedToolsClient } from './managed-tools';
 export { PhoneNumberClient } from './phone-numbers';
 export { TTSClient } from './tts';

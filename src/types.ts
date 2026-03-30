@@ -28,6 +28,8 @@ export interface ConnectionOptions {
   apiUrl?: string;
   /** API key for authentication */
   apiKey?: string;
+  /** Generic bearer auth token for authentication */
+  authToken?: string;
   /** Agent ID to connect to. */
   agentId?: string;
   /** Runtime prompt variables */
@@ -198,6 +200,76 @@ export interface MCPServerConfig {
   [key: string]: any;
 }
 
+export interface ManagedToolsConfig {
+  google_calendar?: {
+    enabled?: boolean | null;
+    default_calendar_id?: string | null;
+    timezone?: string | null;
+    selected_operations?: string[] | null;
+  } | null;
+  google_sheets?: {
+    enabled?: boolean | null;
+    spreadsheet_id?: string | null;
+    sheet_name?: string | null;
+    selected_operations?: string[] | null;
+  } | null;
+  google_gmail?: {
+    enabled?: boolean | null;
+    selected_operations?: string[] | null;
+  } | null;
+}
+
+export type GoogleCalendarOperation =
+  | 'google_calendar_check_availability'
+  | 'google_calendar_list_upcoming_events'
+  | 'google_calendar_create_event'
+  | 'google_calendar_update_event'
+  | 'google_calendar_cancel_event';
+
+export type GoogleSheetsOperation =
+  | 'google_sheets_append_row'
+  | 'google_sheets_list_sheets'
+  | 'google_sheets_read_rows';
+
+export type GoogleGmailOperation =
+  | 'google_gmail_search_messages'
+  | 'google_gmail_get_message'
+  | 'google_gmail_send_email';
+
+export type GoogleManagedToolOperation =
+  | GoogleCalendarOperation
+  | GoogleSheetsOperation
+  | GoogleGmailOperation;
+
+export interface GoogleManagedToolOperationOption<T extends string = string> {
+  value: T;
+  label: string;
+  description: string;
+}
+
+export interface GoogleOAuthStartOptions {
+  returnUrl?: string;
+  managedTools?: ManagedToolsConfig | null;
+}
+
+export interface GoogleOAuthStartResponse {
+  auth_url: string;
+  requested_scopes: string[];
+}
+
+export interface GoogleConnectionStatus {
+  connected: boolean;
+  agent_id: string;
+  error?: string;
+  email?: string | null;
+  expires_at?: string | null;
+  granted_scopes: string[];
+  scopes: string[];
+  required_scopes: string[];
+  missing_scopes: string[];
+  reconnect_required: boolean;
+}
+
 // =============================================================================
 // WEBHOOK TYPES
 // =============================================================================
@@ -214,7 +286,7 @@ export type WebhookEventType = 'call.started' | 'call.completed';
 export interface WebhookEventsConfig {
   /** Webhook endpoint URL (required) */
   url: string;
-  /** HMAC-SHA256 signing secret for payload verification (set when configuring) */
+  /** HMAC-SHA256 signing secret for payload verification (write-only on create/update; URL-matched when preserving secrets across full-array replacement) */
   secret?: string | null;
   /** Whether a signing secret is configured (returned by API) */
   has_secret?: boolean;
@@ -271,7 +343,7 @@ export interface WebhookToolConfig {
   auth_type: 'none' | 'bearer_token' | 'api_key' | 'custom_headers';
   /** Token for bearer_token or api_key auth */
   auth_token?: string | null;
-  /** Additional headers (also used for custom_headers auth) */
+  /** Additional headers (also used for custom_headers auth). For POST/PUT/PATCH, Content-Type is agent-managed and any configured Content-Type is ignored. */
   headers?: Record<string, string> | null;
   /** Request timeout in seconds */
   timeout?: number | null;
@@ -280,8 +352,8 @@ export interface WebhookToolConfig {
 
 /** Webhooks configuration exposed by the public API */
 export interface WebhooksConfig {
-  /** Event notification webhook configuration */
-  events?: WebhookEventsConfig | null;
+  /** Event notification webhook endpoint configurations. On update, omit to preserve, set null to clear, or replace the entire array. */
+  events?: WebhookEventsConfig[] | null;
   /** Inbound call webhook configuration */
   inbound_call?: WebhookInboundCallConfig | null;
   /** Tool webhook configurations */
@@ -309,10 +381,14 @@ export interface WebhookTestResponse {
   status: 'success' | 'failed';
   /** Human-readable result description */
   message: string;
-  /** Error details if the test failed */
-  error?: string | null;
-  /** Number of delivery attempts made */
-  attempts: number;
+  /** Aggregate per-endpoint delivery results */
+  results?: Array<{
+    url: string;
+    success: boolean;
+    status_code?: number | null;
+    attempts: number;
+    error?: string | null;
+  }>;
 }
 
 /** Agent configuration */
@@ -323,7 +399,7 @@ export interface AgentConfig {
   greeting?: string | null;
   /** LLM temperature (default: 0.7) */
   llm_temperature?: number | null;
-  /** LLM model (default: gemini-2.5-flash-lite) */
+  /** LLM model (default: gemini-3.1-flash-lite-preview) */
   llm_model?: string | null;
   /** Minimum TTS sentence length (default: 20) */
   tts_min_sentence_len?: number | null;
@@ -365,6 +441,8 @@ export interface AgentConfig {
   webhooks?: WebhooksConfig | null;
   /** MCP servers configuration */
   mcp_servers?: MCPServerConfig[] | null;
+  /** First-party managed tools configuration */
+  managed_tools?: ManagedToolsConfig | null;
   [key: string]: any;
 }
 
@@ -534,6 +612,18 @@ export interface PaginatedCallHistoryResponse {
   pagination: PaginationMeta;
 }
 
+export type CallHistorySortBy =
+  | 'timestamp'
+  | 'agent'
+  | 'call'
+  | 'duration'
+  | 'credits'
+  | 'summary'
+  | 'transcript'
+  | 'recording';
+
+export type CallHistorySortDirection = 'asc' | 'desc';
+
 /** Options for getting call history */
 export interface GetCallHistoryOptions extends PaginationOptions {
   /** Filter calls after this date (ISO format UTC) */
@@ -542,6 +632,12 @@ export interface GetCallHistoryOptions extends PaginationOptions {
   end_date?: string;
   /** Filter calls by agent ID(s) */
   agent_ids?: string[];
+  /** Filter calls by partial agent name match */
+  agent_name?: string;
+  /** Sort field */
+  sort_by?: CallHistorySortBy;
+  /** Sort direction */
+  sort_dir?: CallHistorySortDirection;
 }
 
 /** Transcript URL response */
@@ -758,7 +854,7 @@ export interface SynthesizeRequest {
 
 /** Options for cloning a voice from audio */
 export interface CloneVoiceOptions {
-  /** Audio file (MP3, WAV, or OGG format, max 7.5MB) */
+  /** Audio file (MP3, WAV, or M4A format, max 7.5MB) */
   file: Blob | File;
   /** Name for the voice (optional) */
   name?: string;
@@ -875,12 +971,18 @@ export interface EndCallResponse {
 // CLIENT CONFIGURATION
 // =============================================================================
 
+export type AuthTokenProvider = () => Promise<string | null | undefined> | string | null | undefined;
+
 /** Configuration for VoiceAI SDK */
 export interface VoiceAIConfig {
   /** API key for authentication.
    * Required for API operations (agents, tts, analytics, etc.) and `getConnectionDetails()`.
    * Not needed when using `connectRoom()` with pre-fetched connection details. */
   apiKey?: string;
+  /** Generic bearer auth token for REST API operations. */
+  authToken?: string;
+  /** Lazy auth token provider for browser apps with rotating auth. */
+  getAuthToken?: AuthTokenProvider;
   /** API base URL (optional, defaults to production) */
   apiUrl?: string;
 }

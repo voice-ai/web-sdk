@@ -62,6 +62,9 @@ export class AnalyticsClient extends BaseClient {
     if (options?.start_date) params.start_date = options.start_date;
     if (options?.end_date) params.end_date = options.end_date;
     if (options?.agent_ids) params.agent_ids = options.agent_ids;
+    if (options?.agent_name) params.agent_name = options.agent_name;
+    if (options?.sort_by) params.sort_by = options.sort_by;
+    if (options?.sort_dir) params.sort_dir = options.sort_dir;
 
     return this.get<PaginatedCallHistoryResponse>('/agent/call-history', params);
   }

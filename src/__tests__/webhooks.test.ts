@@ -117,16 +117,18 @@ describe('Webhook Types', () => {
   describe('WebhooksConfig', () => {
     it('should nest events config', () => {
       const config: WebhooksConfig = {
-        events: {
-          url: 'https://example.com/webhooks',
-          secret: 'secret123',
-          events: ['call.started', 'call.completed'],
-          enabled: true,
-        },
+        events: [
+          {
+            url: 'https://example.com/webhooks',
+            secret: 'secret123',
+            events: ['call.started', 'call.completed'],
+            enabled: true,
+          },
+        ],
       };
 
-      expect(config.events?.url).toBe('https://example.com/webhooks');
-      expect(config.events?.secret).toBe('secret123');
+      expect(config.events?.[0]?.url).toBe('https://example.com/webhooks');
+      expect(config.events?.[0]?.secret).toBe('secret123');
     });
 
     it('should allow null events', () => {
@@ -145,10 +147,12 @@ describe('Webhook Types', () => {
 
     it('should support events and tools together', () => {
       const config: WebhooksConfig = {
-        events: {
-          url: 'https://example.com/webhooks/events',
-          events: ['call.started'],
-        },
+        events: [
+          {
+            url: 'https://example.com/webhooks/events',
+            events: ['call.started'],
+          },
+        ],
         tools: [
           {
             name: 'lookup_order',
@@ -158,7 +162,7 @@ describe('Webhook Types', () => {
         ],
       };
 
-      expect(config.events?.url).toBe('https://example.com/webhooks/events');
+      expect(config.events?.[0]?.url).toBe('https://example.com/webhooks/events');
       expect(config.tools?.[0]?.name).toBe('lookup_order');
     });
 
@@ -187,15 +191,17 @@ describe('Webhook Types', () => {
   describe('WebhooksConfig (response shape)', () => {
     it('should support has_secret in nested events config', () => {
       const config: WebhooksConfig = {
-        events: {
-          url: 'https://example.com/webhooks',
-          has_secret: true,
-          events: ['call.started'],
-          enabled: true,
-        },
+        events: [
+          {
+            url: 'https://example.com/webhooks',
+            has_secret: true,
+            events: ['call.started'],
+            enabled: true,
+          },
+        ],
       };
 
-      expect(config.events?.has_secret).toBe(true);
+      expect(config.events?.[0]?.has_secret).toBe(true);
     });
 
     it('should support has_secret in nested inbound_call config', () => {
@@ -364,26 +370,38 @@ describe('Webhook Types', () => {
       const response: WebhookTestResponse = {
         status: 'success',
         message: 'Webhook test delivered successfully',
-        attempts: 1,
-        status_code: 200,
+        results: [
+          {
+            url: 'https://example.com/webhooks',
+            success: true,
+            status_code: 200,
+            attempts: 1,
+          },
+        ],
       };
 
       expect(response.status).toBe('success');
-      expect(response.attempts).toBe(1);
-      expect(response.status_code).toBe(200);
+      expect(response.results?.[0]?.attempts).toBe(1);
+      expect(response.results?.[0]?.status_code).toBe(200);
     });
 
     it('should define failed test response', () => {
       const response: WebhookTestResponse = {
         status: 'failed',
         message: 'Webhook test failed',
-        error: 'Connection timeout',
-        attempts: 3,
+        results: [
+          {
+            url: 'https://example.com/webhooks',
+            success: false,
+            error: 'Connection timeout',
+            attempts: 3,
+          },
+        ],
       };
 
       expect(response.status).toBe('failed');
-      expect(response.error).toBe('Connection timeout');
-      expect(response.attempts).toBe(3);
+      expect(response.results?.[0]?.error).toBe('Connection timeout');
+      expect(response.results?.[0]?.attempts).toBe(3);
     });
   });
 });
@@ -405,12 +423,14 @@ describe('Webhook API Client', () => {
         config: {
           prompt: 'Test prompt',
           webhooks: {
-            events: {
-              url: 'https://example.com/webhooks',
-              has_secret: true,
-              events: ['call.started', 'call.completed'],
-              enabled: true,
-            },
+            events: [
+              {
+                url: 'https://example.com/webhooks',
+                has_secret: true,
+                events: ['call.started', 'call.completed'],
+                enabled: true,
+              },
+            ],
           },
         },
         status: 'paused',
@@ -427,18 +447,20 @@ describe('Webhook API Client', () => {
         config: {
           prompt: 'Test prompt',
           webhooks: {
-            events: {
-              url: 'https://example.com/webhooks',
-              secret: 'my-secret',
-              events: ['call.started', 'call.completed'],
-              enabled: true,
-            },
+            events: [
+              {
+                url: 'https://example.com/webhooks',
+                secret: 'my-secret',
+                events: ['call.started', 'call.completed'],
+                enabled: true,
+              },
+            ],
           },
         },
       });
 
-      expect(result.config?.webhooks?.events?.url).toBe('https://example.com/webhooks');
-      expect(result.config?.webhooks?.events?.has_secret).toBe(true);
+      expect(result.config?.webhooks?.events?.[0]?.url).toBe('https://example.com/webhooks');
+      expect(result.config?.webhooks?.events?.[0]?.has_secret).toBe(true);
       
       // Verify request body included webhook config with secret
       expect(global.fetch).toHaveBeenCalledWith(
@@ -456,10 +478,12 @@ describe('Webhook API Client', () => {
         name: 'Webhook Agent',
         config: {
           webhooks: {
-            events: {
-              url: 'https://example.com/webhooks',
-              has_secret: false,
-            },
+            events: [
+              {
+                url: 'https://example.com/webhooks',
+                has_secret: false,
+              },
+            ],
           },
         },
         status: 'paused',
@@ -475,15 +499,17 @@ describe('Webhook API Client', () => {
         name: 'Webhook Agent',
         config: {
           webhooks: {
-            events: {
-              url: 'https://example.com/webhooks',
-            },
+            events: [
+              {
+                url: 'https://example.com/webhooks',
+              },
+            ],
           },
         },
       });
 
-      expect(result.config?.webhooks?.events?.url).toBe('https://example.com/webhooks');
-      expect(result.config?.webhooks?.events?.has_secret).toBe(false);
+      expect(result.config?.webhooks?.events?.[0]?.url).toBe('https://example.com/webhooks');
+      expect(result.config?.webhooks?.events?.[0]?.has_secret).toBe(false);
     });
 
     it('should create agent with webhook tools config', async () => {
@@ -606,10 +632,12 @@ describe('Webhook API Client', () => {
         name: 'Test Agent',
         config: {
           webhooks: {
-            events: {
-              url: 'https://new-endpoint.com/webhooks',
-              has_secret: true,
-            },
+            events: [
+              {
+                url: 'https://new-endpoint.com/webhooks',
+                has_secret: true,
+              },
+            ],
           },
         },
       };
@@ -623,14 +651,16 @@ describe('Webhook API Client', () => {
       const result = await client.agents.update('agent-123', {
         config: {
           webhooks: {
-            events: {
-              url: 'https://new-endpoint.com/webhooks',
-            },
+            events: [
+              {
+                url: 'https://new-endpoint.com/webhooks',
+              },
+            ],
           },
         },
       });
 
-      expect(result.config?.webhooks?.events?.url).toBe('https://new-endpoint.com/webhooks');
+      expect(result.config?.webhooks?.events?.[0]?.url).toBe('https://new-endpoint.com/webhooks');
     });
 
     it('should update webhook events list', async () => {
@@ -638,11 +668,13 @@ describe('Webhook API Client', () => {
         agent_id: 'agent-123',
         config: {
           webhooks: {
-            events: {
-              url: 'https://example.com/webhooks',
-              events: ['call.completed'],
-              has_secret: false,
-            },
+            events: [
+              {
+                url: 'https://example.com/webhooks',
+                events: ['call.completed'],
+                has_secret: false,
+              },
+            ],
           },
         },
       };
@@ -656,15 +688,17 @@ describe('Webhook API Client', () => {
       const result = await client.agents.update('agent-123', {
         config: {
           webhooks: {
-            events: {
-              url: 'https://example.com/webhooks',
-              events: ['call.completed'],
-            },
+            events: [
+              {
+                url: 'https://example.com/webhooks',
+                events: ['call.completed'],
+              },
+            ],
           },
         },
       });
 
-      expect(result.config?.webhooks?.events?.events).toEqual(['call.completed']);
+      expect(result.config?.webhooks?.events?.[0]?.events).toEqual(['call.completed']);
     });
 
     it('should disable webhook events', async () => {
@@ -672,10 +706,12 @@ describe('Webhook API Client', () => {
         agent_id: 'agent-123',
         config: {
           webhooks: {
-            events: {
-              url: 'https://example.com/webhooks',
-              enabled: false,
-            },
+            events: [
+              {
+                url: 'https://example.com/webhooks',
+                enabled: false,
+              },
+            ],
           },
         },
       };
@@ -689,15 +725,17 @@ describe('Webhook API Client', () => {
       const result = await client.agents.update('agent-123', {
         config: {
           webhooks: {
-            events: {
-              url: 'https://example.com/webhooks',
-              enabled: false,
-            },
+            events: [
+              {
+                url: 'https://example.com/webhooks',
+                enabled: false,
+              },
+            ],
           },
         },
       });
 
-      expect(result.config?.webhooks?.events?.enabled).toBe(false);
+      expect(result.config?.webhooks?.events?.[0]?.enabled).toBe(false);
     });
 
     it('should update webhook tool fields', async () => {
@@ -803,13 +841,15 @@ describe('Webhook API Client', () => {
         name: 'Test Agent',
         config: {
           webhooks: {
-            events: {
-              url: 'https://example.com/webhooks',
-              has_secret: true,
-              events: ['call.started', 'call.completed'],
-              timeout: 5,
-              enabled: true,
-            },
+            events: [
+              {
+                url: 'https://example.com/webhooks',
+                has_secret: true,
+                events: ['call.started', 'call.completed'],
+                timeout: 5,
+                enabled: true,
+              },
+            ],
           },
         },
         status: 'deployed',
@@ -823,9 +863,9 @@ describe('Webhook API Client', () => {
 
       const result = await client.agents.getById('agent-123');
 
-      expect(result.config?.webhooks?.events?.has_secret).toBe(true);
-      expect((result.config?.webhooks?.events as any)?.secret).toBeUndefined();
-      expect(result.config?.webhooks?.events?.events).toContain('call.started');
+      expect(result.config?.webhooks?.events?.[0]?.has_secret).toBe(true);
+      expect((result.config?.webhooks?.events?.[0] as any)?.secret).toBeUndefined();
+      expect(result.config?.webhooks?.events?.[0]?.events).toContain('call.started');
     });
 
     it('should return agent with webhook tool tool auth and execution fields', async () => {

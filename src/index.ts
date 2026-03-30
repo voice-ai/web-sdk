@@ -26,9 +26,11 @@ import { VoiceAIError } from './client/base';
 import { AgentClient } from './client/agents';
 import { AnalyticsClient } from './client/analytics';
 import { KnowledgeBaseClient } from './client/knowledge-base';
+import { ManagedToolsClient } from './client/managed-tools';
 import { PhoneNumberClient } from './client/phone-numbers';
 import { TTSClient } from './client/tts';
 import type {
+  AuthTokenProvider,
   ConnectionOptions,
   ConnectionDetails,
   TranscriptionSegment,
@@ -81,38 +83,45 @@ export class VoiceAI {
   
   /** Agent management - create, update, deploy, pause, delete agents. */
   public get agents(): AgentClient {
-    if (!this._agents) throw new VoiceAIError('API key required for agents API. Pass apiKey in the constructor.');
+    if (!this._agents) throw new VoiceAIError('API key required for agents API, or pass authToken/getAuthToken in the constructor.');
     return this._agents;
   }
   private _agents?: AgentClient;
   
   /** Analytics - call history, transcripts, stats. */
   public get analytics(): AnalyticsClient {
-    if (!this._analytics) throw new VoiceAIError('API key required for analytics API. Pass apiKey in the constructor.');
+    if (!this._analytics) throw new VoiceAIError('API key required for analytics API, or pass authToken/getAuthToken in the constructor.');
     return this._analytics;
   }
   private _analytics?: AnalyticsClient;
   
   /** Knowledge Base - manage RAG documents. */
   public get knowledgeBase(): KnowledgeBaseClient {
-    if (!this._knowledgeBase) throw new VoiceAIError('API key required for knowledgeBase API. Pass apiKey in the constructor.');
+    if (!this._knowledgeBase) throw new VoiceAIError('API key required for knowledgeBase API, or pass authToken/getAuthToken in the constructor.');
     return this._knowledgeBase;
   }
   private _knowledgeBase?: KnowledgeBaseClient;
   
   /** Phone Numbers - search, select, release phone numbers. */
   public get phoneNumbers(): PhoneNumberClient {
-    if (!this._phoneNumbers) throw new VoiceAIError('API key required for phoneNumbers API. Pass apiKey in the constructor.');
+    if (!this._phoneNumbers) throw new VoiceAIError('API key required for phoneNumbers API, or pass authToken/getAuthToken in the constructor.');
     return this._phoneNumbers;
   }
   private _phoneNumbers?: PhoneNumberClient;
   
   /** Text-to-Speech - generate speech, manage voices, clone voices. */
   public get tts(): TTSClient {
-    if (!this._tts) throw new VoiceAIError('API key required for tts API. Pass apiKey in the constructor.');
+    if (!this._tts) throw new VoiceAIError('API key required for tts API, or pass authToken/getAuthToken in the constructor.');
     return this._tts;
   }
   private _tts?: TTSClient;
+
+  /** Managed tools - provider-specific OAuth/status/disconnect helpers. */
+  public get managedTools(): ManagedToolsClient {
+    if (!this._managedTools) throw new VoiceAIError('API key required for managedTools API, or pass authToken/getAuthToken in the constructor.');
+    return this._managedTools;
+  }
+  private _managedTools?: ManagedToolsClient;
 
   // ==========================================================================
   // PRIVATE STATE (Real-time voice)
@@ -128,6 +137,8 @@ export class VoiceAI {
   private microphoneStateHandlers: Set<MicrophoneStateHandler> = new Set();
   private apiUrl: string;
   private apiKey: string;
+  private authToken?: string;
+  private getAuthToken?: AuthTokenProvider;
   private effectiveApiKey: string = '';
   private cachedConnectionDetails: ConnectionDetails | null = null;
   private currentAgentState: AgentState = 'disconnected';
@@ -143,16 +154,24 @@ export class VoiceAI {
    */
   constructor(config: VoiceAIConfig = {}) {
     this.apiKey = config.apiKey || '';
+    this.authToken = config.authToken;
+    this.getAuthToken = config.getAuthToken;
     this.apiUrl = config.apiUrl || DEFAULT_API_URL;
 
-    // Initialize API clients when apiKey is provided
-    if (this.apiKey) {
-      const clientConfig = { apiKey: this.apiKey, apiUrl: this.apiUrl };
+    // Initialize API clients when auth is provided
+    if (this.apiKey || this.authToken || this.getAuthToken) {
+      const clientConfig = {
+        apiKey: this.apiKey,
+        authToken: this.authToken,
+        getAuthToken: this.getAuthToken,
+        apiUrl: this.apiUrl,
+      };
       this._agents = new AgentClient(clientConfig);
       this._analytics = new AnalyticsClient(clientConfig);
       this._knowledgeBase = new KnowledgeBaseClient(clientConfig);
       this._phoneNumbers = new PhoneNumberClient(clientConfig);
       this._tts = new TTSClient(clientConfig);
+      this._managedTools = new ManagedToolsClient(clientConfig);
     }
   }
 
@@ -539,12 +558,12 @@ export class VoiceAI {
       return this.cachedConnectionDetails;
     }
     
-    // Mode 2: Direct API call with API key (constructor or per-call)
-    if (!this.apiKey && !options.apiKey) {
+    // Mode 2: Direct API call with API key or bearer auth (constructor or per-call)
+    if (!(await this.resolveAuthToken(options))) {
       throw new Error(
         'No authentication method configured. Use one of:\n' +
         '1. connectRoom() with pre-fetched details from your backend\n' +
-        '2. API key: new VoiceAI({ apiKey: "vk_..." }) or connect({ apiKey: "vk_..." })'
+        '2. API key or auth token: new VoiceAI({ apiKey: "vk_..." }) / new VoiceAI({ authToken: "..." })'
       );
     }
 
@@ -562,10 +581,24 @@ export class VoiceAI {
    * Used by the public getConnectionDetails() method.
    */
   private async fetchConnectionDetails(options: ConnectionOptions): Promise<ConnectionDetails> {
-    if (!this.apiKey && !options.apiKey) {
-      throw new Error('API key is required for getConnectionDetails(). Pass { apiKey: "vk_..." } to the constructor or options.');
+    if (!(await this.resolveAuthToken(options))) {
+      throw new Error('API key is required for getConnectionDetails(), or pass authToken/getAuthToken to the constructor.');
     }
     return this.fetchConnectionDetailsFromApi(options);
+  }
+
+  private async resolveAuthToken(options: Pick<ConnectionOptions, 'apiKey' | 'authToken'> = {}): Promise<string> {
+    if (options.apiKey) return options.apiKey;
+    if (options.authToken) return options.authToken;
+    if (this.apiKey) return this.apiKey;
+    if (this.authToken) return this.authToken;
+    if (this.getAuthToken) {
+      const resolvedToken = await this.getAuthToken();
+      if (typeof resolvedToken === 'string' && resolvedToken.trim()) {
+        return resolvedToken;
+      }
+    }
+    return '';
   }
 
   private async fetchConnectionDetailsFromApi(options: ConnectionOptions): Promise<ConnectionDetails> {
@@ -586,13 +619,13 @@ export class VoiceAI {
       requestData.dynamic_variables = options.dynamicVariables;
     }
 
-    const apiKey = options.apiKey || this.apiKey;
-    this.effectiveApiKey = apiKey;
+    const authToken = await this.resolveAuthToken(options);
+    this.effectiveApiKey = authToken;
     const response = await fetch(endpoint, {
       method: 'POST',
       headers: {
         'Content-Type': 'application/json',
-        'Authorization': `Bearer ${apiKey}`
+        'Authorization': `Bearer ${authToken}`
       },
       body: JSON.stringify(requestData)
     });
@@ -892,6 +925,7 @@ export { VoiceAIError } from './client/base';
 // Method parameter and return types are inferred by TypeScript --
 // users don't need to import CreateAgentRequest, PaginatedAgentResponse, etc.
 export type {
+  AuthTokenProvider,
   VoiceAIConfig,
   ConnectionOptions,
   ConnectionDetails,
@@ -902,6 +936,15 @@ export type {
   AudioLevelInfo,
   MicrophoneState,
   Agent,
+  ManagedToolsConfig,
+  GoogleCalendarOperation,
+  GoogleSheetsOperation,
+  GoogleGmailOperation,
+  GoogleManagedToolOperation,
+  GoogleManagedToolOperationOption,
+  GoogleOAuthStartOptions,
+  GoogleOAuthStartResponse,
+  GoogleConnectionStatus,
   VoiceResponse,
   VoiceStatus,
   RecordingStatus,
@@ -937,6 +980,27 @@ export function generateOptimalAudioOptions(options?: Partial<AudioCaptureOption
 
   return { ...optimalOptions, ...options };
 }
+
+export {
+  GOOGLE_IDENTITY_SCOPES,
+  GOOGLE_CALENDAR_SCOPE,
+  GOOGLE_SHEETS_SCOPE,
+  GOOGLE_GMAIL_READ_SCOPE,
+  GOOGLE_GMAIL_SEND_SCOPE,
+  GOOGLE_CALENDAR_OPERATION_OPTIONS,
+  GOOGLE_SHEETS_OPERATION_OPTIONS,
+  GOOGLE_GMAIL_OPERATION_OPTIONS,
+  GOOGLE_MANAGED_OPERATION_OPTIONS,
+  IANA_TIMEZONE_OPTIONS,
+  getManagedToolSelectedOperations,
+  toggleManagedToolOperation,
+  getRequiredGoogleScopes,
+  getMissingGoogleScopes,
+  getMissingGoogleScopesForManagedTools,
+  isGoogleReconnectRequired,
+  getGoogleReconnectState,
+  hasEnabledGoogleManagedTools,
+} from './managed-tools/google';
 
 // =============================================================================
 // UI COMPONENTS (SAMPLE)

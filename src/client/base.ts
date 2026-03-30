@@ -7,7 +7,7 @@
  * - Common HTTP methods (GET, POST, PUT, PATCH, DELETE)
  */
 
-import type { ErrorResponse, HTTPValidationError } from '../types';
+import type { AuthTokenProvider, ErrorResponse, HTTPValidationError } from '../types';
 
 /** Error thrown by Voice.ai API client */
 export class VoiceAIError extends Error {
@@ -24,7 +24,9 @@ export class VoiceAIError extends Error {
 
 /** Configuration for BaseClient */
 export interface BaseClientConfig {
-  apiKey: string;
+  apiKey?: string;
+  authToken?: string;
+  getAuthToken?: AuthTokenProvider;
   apiUrl: string;
 }
 
@@ -33,19 +35,40 @@ export interface BaseClientConfig {
  */
 export class BaseClient {
   protected readonly apiKey: string;
+  protected readonly authToken?: string;
+  protected readonly getAuthToken?: AuthTokenProvider;
   protected readonly apiUrl: string;
 
   constructor(config: BaseClientConfig) {
-    this.apiKey = config.apiKey;
+    this.apiKey = config.apiKey || '';
+    this.authToken = config.authToken;
+    this.getAuthToken = config.getAuthToken;
     this.apiUrl = config.apiUrl;
+  }
+
+  protected async resolveBearerToken(): Promise<string> {
+    if (this.apiKey) {
+      return this.apiKey;
+    }
+    if (this.authToken) {
+      return this.authToken;
+    }
+    if (this.getAuthToken) {
+      const resolvedToken = await this.getAuthToken();
+      if (typeof resolvedToken === 'string' && resolvedToken.trim()) {
+        return resolvedToken;
+      }
+    }
+    throw new VoiceAIError('Authentication required. Configure apiKey, authToken, or getAuthToken.', 401, 'UNAUTHORIZED');
   }
 
   /**
    * Build headers with authentication
    */
-  protected getHeaders(contentType: string = 'application/json'): Record<string, string> {
+  protected async getHeaders(contentType: string = 'application/json'): Promise<Record<string, string>> {
+    const bearerToken = await this.resolveBearerToken();
     const headers: Record<string, string> = {
-      'Authorization': `Bearer ${this.apiKey}`,
+      'Authorization': `Bearer ${bearerToken}`,
     };
     
     if (contentType) {
@@ -80,7 +103,7 @@ export class BaseClient {
     // Handle specific error codes
     if (response.status === 401) {
       throw new VoiceAIError(
-        'Authentication failed. Please check your API key.',
+        'Authentication failed. Please check your API key or auth token.',
         401,
         'UNAUTHORIZED'
       );
@@ -149,7 +172,7 @@ export class BaseClient {
 
     const response = await fetch(url.toString(), {
       method: 'GET',
-      headers: this.getHeaders(),
+      headers: await this.getHeaders(),
     });
 
     return this.handleResponse<T>(response);
@@ -175,7 +198,7 @@ export class BaseClient {
 
     const response = await fetch(url.toString(), {
       method: 'GET',
-      headers: this.getHeaders(),
+      headers: await this.getHeaders(),
     });
 
     if (!response.ok) {
@@ -202,7 +225,7 @@ export class BaseClient {
   protected async post<T>(path: string, body?: any): Promise<T> {
     const response = await fetch(`${this.apiUrl}${path}`, {
       method: 'POST',
-      headers: this.getHeaders(),
+      headers: await this.getHeaders(),
       body: body !== undefined ? JSON.stringify(body) : undefined,
     });
 
@@ -215,7 +238,7 @@ export class BaseClient {
   protected async postFormData<T>(path: string, formData: FormData): Promise<T> {
     // Don't set Content-Type header - browser will set it with boundary
     const headers: Record<string, string> = {
-      'Authorization': `Bearer ${this.apiKey}`,
+      'Authorization': `Bearer ${await this.resolveBearerToken()}`,
     };
 
     const response = await fetch(`${this.apiUrl}${path}`, {
@@ -233,7 +256,7 @@ export class BaseClient {
   protected async put<T>(path: string, body?: any): Promise<T> {
     const response = await fetch(`${this.apiUrl}${path}`, {
       method: 'PUT',
-      headers: this.getHeaders(),
+      headers: await this.getHeaders(),
       body: body !== undefined ? JSON.stringify(body) : undefined,
     });
 
@@ -246,7 +269,7 @@ export class BaseClient {
   protected async patch<T>(path: string, body?: any): Promise<T> {
     const response = await fetch(`${this.apiUrl}${path}`, {
       method: 'PATCH',
-      headers: this.getHeaders(),
+      headers: await this.getHeaders(),
       body: body !== undefined ? JSON.stringify(body) : undefined,
     });
 
@@ -259,7 +282,7 @@ export class BaseClient {
   protected async httpDelete<T>(path: string): Promise<T> {
     const response = await fetch(`${this.apiUrl}${path}`, {
       method: 'DELETE',
-      headers: this.getHeaders(),
+      headers: await this.getHeaders(),
     });
 
     return this.handleResponse<T>(response);
@@ -271,7 +294,7 @@ export class BaseClient {
   protected async postForBlob(path: string, body?: any): Promise<Blob> {
     const response = await fetch(`${this.apiUrl}${path}`, {
       method: 'POST',
-      headers: this.getHeaders(),
+      headers: await this.getHeaders(),
       body: body !== undefined ? JSON.stringify(body) : undefined,
     });
 
@@ -300,7 +323,7 @@ export class BaseClient {
   protected async postForStream(path: string, body?: any): Promise<Response> {
     const response = await fetch(`${this.apiUrl}${path}`, {
       method: 'POST',
-      headers: this.getHeaders(),
+      headers: await this.getHeaders(),
       body: body !== undefined ? JSON.stringify(body) : undefined,
     });
 
