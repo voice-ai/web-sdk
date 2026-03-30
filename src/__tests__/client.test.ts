@@ -1,5 +1,5 @@
 import { describe, it, expect, beforeEach, vi, Mock } from 'vitest';
-import VoiceAI from '../index';
+import VoiceAI, { IANA_TIMEZONE_OPTIONS, getGoogleReconnectState, getRequiredGoogleScopes } from '../index';
 import { VoiceAIError } from '../client';
 
 describe('VoiceAI REST API (agents, analytics, tts, etc.)', () => {
@@ -21,6 +21,213 @@ describe('VoiceAI REST API (agents, analytics, tts, etc.)', () => {
       expect(client.knowledgeBase).toBeDefined();
       expect(client.phoneNumbers).toBeDefined();
       expect(client.tts).toBeDefined();
+      expect(client.managedTools).toBeDefined();
+    });
+
+    it('should have managed tools client when auth token provider provided', () => {
+      const client = new VoiceAI({ getAuthToken: async () => 'jwt_token' });
+      expect(client.managedTools).toBeDefined();
+    });
+  });
+
+  describe('ManagedToolsClient', () => {
+    let client: VoiceAI;
+
+    beforeEach(() => {
+      client = new VoiceAI({ authToken: 'jwt_test_token' });
+    });
+
+    it('should start Google OAuth with draft managed tools', async () => {
+      const mockResponse = {
+        auth_url: 'https://accounts.google.com/o/oauth2/v2/auth?state=test',
+        requested_scopes: [
+          'openid',
+          'https://www.googleapis.com/auth/userinfo.email',
+          'https://www.googleapis.com/auth/userinfo.profile',
+          'https://www.googleapis.com/auth/gmail.send',
+        ],
+      };
+      (global.fetch as Mock).mockResolvedValueOnce({
+        ok: true,
+        headers: new Headers({ 'content-type': 'application/json' }),
+        json: async () => mockResponse,
+      });
+
+      const result = await client.managedTools.google.startOAuth('agent-123', {
+        returnUrl: 'https://app.example.com/agents/agent-123?tab=tools',
+        managedTools: {
+          google_gmail: {
+            enabled: true,
+            selected_operations: ['google_gmail_send_email'],
+          },
+        },
+      });
+
+      expect(result).toEqual(mockResponse);
+      expect(global.fetch).toHaveBeenCalledWith(
+        'https://dev.voice.ai/api/v1/google/agent-123/oauth/start',
+        expect.objectContaining({
+          method: 'POST',
+          headers: expect.objectContaining({
+            Authorization: 'Bearer jwt_test_token',
+          }),
+          body: JSON.stringify({
+            return_path: 'https://app.example.com/agents/agent-123?tab=tools',
+            managed_tools: {
+              google_gmail: {
+                enabled: true,
+                selected_operations: ['google_gmail_send_email'],
+              },
+            },
+          }),
+        })
+      );
+    });
+
+    it('should fetch Google connection status with token provider auth', async () => {
+      const tokenProviderClient = new VoiceAI({ getAuthToken: async () => 'jwt_provider_token' });
+      const mockStatus = {
+        connected: true,
+        agent_id: 'agent-123',
+        email: 'user@example.com',
+        granted_scopes: ['https://www.googleapis.com/auth/calendar'],
+        scopes: ['https://www.googleapis.com/auth/calendar'],
+        required_scopes: ['openid'],
+        missing_scopes: [],
+        reconnect_required: false,
+      };
+      (global.fetch as Mock).mockResolvedValueOnce({
+        ok: true,
+        headers: new Headers({ 'content-type': 'application/json' }),
+        json: async () => mockStatus,
+      });
+
+      const result = await tokenProviderClient.managedTools.google.getStatus('agent-123');
+
+      expect(result).toEqual(mockStatus);
+      expect(global.fetch).toHaveBeenCalledWith(
+        'https://dev.voice.ai/api/v1/google/agent-123/status',
+        expect.objectContaining({
+          method: 'GET',
+          headers: expect.objectContaining({
+            Authorization: 'Bearer jwt_provider_token',
+          }),
+        })
+      );
+    });
+
+    it('should disconnect Google connection', async () => {
+      const mockResponse = { disconnected: true, agent_id: 'agent-123' };
+      (global.fetch as Mock).mockResolvedValueOnce({
+        ok: true,
+        headers: new Headers({ 'content-type': 'application/json' }),
+        json: async () => mockResponse,
+      });
+
+      const result = await client.managedTools.google.disconnect('agent-123');
+
+      expect(result).toEqual(mockResponse);
+      expect(global.fetch).toHaveBeenCalledWith(
+        'https://dev.voice.ai/api/v1/google/agent-123/disconnect',
+        expect.objectContaining({
+          method: 'DELETE',
+        })
+      );
+    });
+  });
+
+  describe('Managed Google helpers', () => {
+    it('should derive minimal Google scopes from enabled tools and operations', () => {
+      const scopes = getRequiredGoogleScopes({
+        google_calendar: { enabled: true },
+        google_gmail: {
+          enabled: true,
+          selected_operations: ['google_gmail_get_message'],
+        },
+      });
+
+      expect(scopes).toEqual([
+        'openid',
+        'https://www.googleapis.com/auth/userinfo.email',
+        'https://www.googleapis.com/auth/userinfo.profile',
+        'https://www.googleapis.com/auth/calendar',
+        'https://www.googleapis.com/auth/gmail.readonly',
+      ]);
+    });
+
+    it('should not request Calendar or Sheets scopes when selected operations are explicitly empty', () => {
+      const scopes = getRequiredGoogleScopes({
+        google_calendar: { enabled: true, selected_operations: [] },
+        google_sheets: { enabled: true, selected_operations: [] },
+      });
+
+      expect(scopes).toEqual([
+        'openid',
+        'https://www.googleapis.com/auth/userinfo.email',
+        'https://www.googleapis.com/auth/userinfo.profile',
+      ]);
+    });
+
+    it('should mark reconnect required only when connected and missing draft scopes', () => {
+      const reconnectState = getGoogleReconnectState(
+        {
+          google_gmail: {
+            enabled: true,
+            selected_operations: ['google_gmail_send_email'],
+          },
+        },
+        {
+          connected: true,
+          granted_scopes: ['https://www.googleapis.com/auth/gmail.readonly'],
+        }
+      );
+
+      expect(reconnectState.reconnect_required).toBe(true);
+      expect(reconnectState.missing_scopes).toEqual([
+        'openid',
+        'https://www.googleapis.com/auth/userinfo.email',
+        'https://www.googleapis.com/auth/userinfo.profile',
+        'https://www.googleapis.com/auth/gmail.send',
+      ]);
+    });
+
+    it('should preserve backend reconnect_required even when scopes are already satisfied', () => {
+      const reconnectState = getGoogleReconnectState(
+        {
+          google_calendar: {
+            enabled: true,
+            selected_operations: ['google_calendar_check_availability'],
+          },
+        },
+        {
+          connected: true,
+          granted_scopes: ['https://www.googleapis.com/auth/calendar'],
+          reconnect_required: true,
+        }
+      );
+
+      expect(reconnectState.missing_scopes).toEqual([
+        'openid',
+        'https://www.googleapis.com/auth/userinfo.email',
+        'https://www.googleapis.com/auth/userinfo.profile',
+      ]);
+      expect(reconnectState.reconnect_required).toBe(true);
+    });
+
+    it('should expose timezone options with UTC offset labels sorted by offset', () => {
+      expect(IANA_TIMEZONE_OPTIONS.length).toBeGreaterThan(10);
+      expect(IANA_TIMEZONE_OPTIONS[0]).toHaveProperty('value');
+      expect(IANA_TIMEZONE_OPTIONS[0]).toHaveProperty('label');
+      expect(IANA_TIMEZONE_OPTIONS[0]).toHaveProperty('offsetMinutes');
+      expect(IANA_TIMEZONE_OPTIONS[0].label.startsWith('UTC')).toBe(true);
+
+      const losAngeles = IANA_TIMEZONE_OPTIONS.find((option) => option.value === 'America/Los_Angeles');
+      const newYork = IANA_TIMEZONE_OPTIONS.find((option) => option.value === 'America/New_York');
+      expect(losAngeles).toBeDefined();
+      expect(newYork).toBeDefined();
+      expect(losAngeles!.label).toContain('America/Los_Angeles');
+      expect(newYork!.label).toContain('America/New_York');
+      expect(losAngeles!.offsetMinutes).toBeLessThanOrEqual(newYork!.offsetMinutes);
     });
   });
 
@@ -51,7 +258,7 @@ describe('VoiceAI REST API (agents, analytics, tts, etc.)', () => {
       const mockAgent = {
         agent_id: 'agent-123',
         name: 'New Agent',
-        config: { prompt: 'Test prompt' },
+        config: { prompt: 'Test prompt', managed_tools: { google_calendar: { enabled: true } } },
         status: 'paused',
         status_code: 1,
         created_at: '2024-01-01T00:00:00Z',
@@ -65,7 +272,7 @@ describe('VoiceAI REST API (agents, analytics, tts, etc.)', () => {
 
       const result = await client.agents.create({
         name: 'New Agent',
-        config: { prompt: 'Test prompt' },
+        config: { prompt: 'Test prompt', managed_tools: { google_calendar: { enabled: true } } },
       });
 
       expect(result).toEqual(mockAgent);
@@ -73,7 +280,7 @@ describe('VoiceAI REST API (agents, analytics, tts, etc.)', () => {
         'https://dev.voice.ai/api/v1/agent/',
         expect.objectContaining({
           method: 'POST',
-          body: JSON.stringify({ name: 'New Agent', config: { prompt: 'Test prompt' } }),
+          body: JSON.stringify({ name: 'New Agent', config: { prompt: 'Test prompt', managed_tools: { google_calendar: { enabled: true } } } }),
         })
       );
     });
@@ -241,6 +448,31 @@ describe('VoiceAI REST API (agents, analytics, tts, etc.)', () => {
       const result = await client.analytics.getCallHistory({ page: 1, limit: 10 });
 
       expect(result.items.length).toBe(1);
+    });
+
+    it('should forward call history search and sort params', async () => {
+      const mockHistory = {
+        items: [],
+        pagination: { current_page: 1, total_pages: 1, total_items: 0, limit: 10, has_next: false, has_previous: false },
+      };
+      (global.fetch as Mock).mockResolvedValueOnce({
+        ok: true,
+        headers: new Headers({ 'content-type': 'application/json' }),
+        json: async () => mockHistory,
+      });
+
+      await client.analytics.getCallHistory({
+        page: 2,
+        limit: 10,
+        agent_name: 'alpha',
+        sort_by: 'duration',
+        sort_dir: 'asc',
+      });
+
+      expect(global.fetch).toHaveBeenCalledWith(
+        'https://dev.voice.ai/api/v1/agent/call-history?page=2&limit=10&agent_name=alpha&sort_by=duration&sort_dir=asc',
+        expect.objectContaining({ method: 'GET' })
+      );
     });
 
     it('should get transcript URL', async () => {
