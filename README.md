@@ -294,6 +294,8 @@ Today the SDK includes one Google entry:
 
 Use the managed Google surface to connect an agent to Google Calendar, Sheets, or Gmail.
 
+For a working browser example, see [`sdk/web/demo/managed-tools.html`](https://github.com/voice-ai/web-sdk/blob/main/demo/managed-tools.html).
+
 ```typescript
 import VoiceAI, {
   GOOGLE_CALENDAR_OPERATION_OPTIONS,
@@ -331,7 +333,7 @@ const reconnect = getGoogleReconnectState(
 
 Connection flow:
 
-1. Call `startOAuth(...)` with the agent ID, `returnUrl`, and the individual Google managed tool configs you want enabled.
+1. Call `startOAuth(...)` with the agent ID, `returnUrl`, and only the clicked Google managed tool config.
 2. Open the returned `auth_url` in a popup or browser tab.
 3. Google redirects to the VoiceAI backend callback.
 4. The backend completes OAuth and then returns the user to your `returnUrl`.
@@ -340,9 +342,9 @@ Connection flow:
 Connection semantics:
 
 - `startOAuth(...)` manages Google managed-tools access for the agent
-- `managedTools.google_calendar`, `managedTools.google_sheets`, and `managedTools.google_gmail` decide which Google capabilities should be available
-- enabling more Google operations later can require reconnecting to grant additional access
-- `disconnect(...)` removes Google managed-tools access for that agent
+- pass only the clicked tool config to request only that tool's scopes
+- enabling more Google operations later can require reconnecting to grant additional access on the same Google connection
+- `disconnect(...)` removes Google managed-tools access for all Google tools on that agent
 
 Available helpers:
 
@@ -393,6 +395,7 @@ Supported Gmail operations:
 Notes:
 
 - Google Calendar, Sheets, and Gmail all use the `voiceai.managedTools.google` surface.
+- When a user clicks a specific tool card, pass only that tool's config in `managedTools` so OAuth only requests that tool's scopes.
 - If you enable additional Google operations later, `getStatus()` / `getGoogleReconnectState(...)` may report `reconnect_required` until you reconnect and grant the additional access.
 - `voiceai.managedTools.google.disconnect(agentId)` removes Google managed-tools access for the agent.
 - `returnUrl` is your app/frontend return target after the VoiceAI backend callback completes. It is not the Google-registered OAuth redirect URI.
