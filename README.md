@@ -294,7 +294,7 @@ Today the SDK includes one Google entry:
 
 Use the managed Google surface to connect an agent to Google Calendar, Sheets, or Gmail.
 
-For a working browser example, see [`sdk/web/demo/managed-tools.html`](https://github.com/voice-ai/web-sdk/blob/main/demo/managed-tools.html).
+For a working browser example, see [`demo/managed-tools.html`](https://github.com/voice-ai/web-sdk/blob/main/demo/managed-tools.html).
 
 ```typescript
 import VoiceAI, {
