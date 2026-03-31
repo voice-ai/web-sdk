@@ -34,8 +34,8 @@
 Use `demo/managed-tools.html` to test Google managed tools from the browser SDK.
 
 What it shows:
-- tool-specific Google OAuth starts
-- shared provider status
+- shared Google OAuth connect/reconnect for the agent
+- per-tool readiness derived from shared provider status
 - shared Google disconnect for all tools
 
 Open it after starting the same demo server:
@@ -45,7 +45,7 @@ http://localhost:3000/demo/managed-tools.html
 ```
 
 Update the API key, agent ID, and API URL in the form, then:
-- click `Connect Calendar`, `Connect Sheets`, or `Connect Gmail`
+- click `Connect Google`
 - finish OAuth in the popup
 - click `Refresh Shared Status`
 - use `Disconnect Google (all tools)` to clear the shared Google connection
