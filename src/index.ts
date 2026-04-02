@@ -618,6 +618,9 @@ export class VoiceAI {
     if (options.dynamicVariables) {
       requestData.dynamic_variables = options.dynamicVariables;
     }
+    if (options.agentOverrides) {
+      requestData.agent_overrides = options.agentOverrides;
+    }
 
     const authToken = await this.resolveAuthToken(options);
     this.effectiveApiKey = authToken;
