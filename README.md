@@ -61,6 +61,7 @@ await voiceai.connect({ agentId: 'agent-123', testMode: true });
 
 - `agentId` for a saved agent
 - `dynamicVariables` for optional runtime variables passed at call start
+- `agentOverrides` for optional call-scoped runtime config overrides
 - `testMode` to preview paused agents before deploying
 
 ### Events
@@ -276,7 +277,14 @@ await voiceai.agents.disable(agent.agent_id);
 await voiceai.agents.createOutboundCall({
   agent_id: agent.agent_id,
   target_phone_number: '+15551234567',
-  dynamic_variables: { case_id: 'abc-1' }
+  dynamic_variables: { case_id: 'abc-1' },
+  agent_overrides: {
+    tts_params: {
+      voice_id: 'voice_priority_customer',
+      dictionary_id: 'dict-123',
+      dictionary_version: 2,
+    },
+  },
 });
 ```
 
@@ -435,6 +443,32 @@ await voiceai.connect({
 - Extra variables are allowed.
 - Variables that are not referenced by the runtime prompt are ignored.
 - The runtime is responsible for interpolating these variables into the prompt.
+
+### Runtime Agent Overrides
+
+Pass optional `agentOverrides` at call start when you need a call-scoped config patch rather than prompt interpolation:
+
+```typescript
+await voiceai.connect({
+  agentId: agent.agent_id,
+  dynamicVariables: {
+    customer_name: 'Alice',
+  },
+  agentOverrides: {
+    tts_params: {
+      voice_id: 'voice_vip_alice',
+      model: 'voiceai-tts-v1-latest',
+      language: 'en',
+    },
+  },
+});
+```
+
+- `agentOverrides` is separate from `dynamicVariables`.
+- `dynamicVariables` is for prompt and greeting interpolation.
+- `agentOverrides` is for allowlisted runtime config changes.
+- v1 supports only `tts_params.voice_id`, `model`, `language`, `temperature`, `top_p`, `dictionary_id`, and `dictionary_version`.
+- `agentOverrides` uses the same nested shape as agent config, so voice overrides live under `tts_params`.
 
 ## Knowledge Base
 
@@ -732,6 +766,17 @@ Your endpoint should respond with:
 ```typescript
 interface InboundCallWebhookResponse {
   dynamic_variables?: Record<string, string | number | boolean>;
+  agent_overrides?: {
+    tts_params?: {
+      voice_id?: string;
+      model?: string;
+      language?: string;
+      temperature?: number;
+      top_p?: number;
+      dictionary_id?: string;
+      dictionary_version?: number;
+    };
+  };
 }
 ```
 

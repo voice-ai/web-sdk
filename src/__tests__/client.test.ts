@@ -388,6 +388,11 @@ describe('VoiceAI REST API (agents, analytics, tts, etc.)', () => {
         agent_id: 'agent-123',
         target_phone_number: '+15551234567',
         dynamic_variables: { case_id: 'abc-1', priority: 2, vip: true },
+        agent_overrides: {
+          tts_params: {
+            voice_id: 'voice-override',
+          },
+        },
       });
 
       expect(result).toEqual(mockOutbound);
@@ -399,6 +404,11 @@ describe('VoiceAI REST API (agents, analytics, tts, etc.)', () => {
             agent_id: 'agent-123',
             target_phone_number: '+15551234567',
             dynamic_variables: { case_id: 'abc-1', priority: 2, vip: true },
+            agent_overrides: {
+              tts_params: {
+                voice_id: 'voice-override',
+              },
+            },
           }),
         })
       );

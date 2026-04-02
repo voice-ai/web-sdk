@@ -34,6 +34,9 @@ export interface ConnectionOptions {
   agentId?: string;
   /** Runtime prompt variables */
   dynamicVariables?: DynamicVariables;
+  /** Runtime config overrides for the current call.
+   * Uses the same nested shape as agent config for the allowlisted subset. */
+  agentOverrides?: RuntimeAgentOverrides;
   /** Enable automatic microphone publishing (default: true) */
   autoPublishMic?: boolean;
   /** Audio capture options */
@@ -182,6 +185,17 @@ export type DynamicVariableValue = string | number | boolean;
 
 /** Runtime prompt variables passed at call start */
 export type DynamicVariables = Record<string, DynamicVariableValue>;
+
+/** Runtime config overrides passed at call start */
+export interface RuntimeAgentOverrides {
+  /** Call-scoped TTS overrides */
+  tts_params?: Partial<
+    Pick<
+      TTSParams,
+      'voice_id' | 'model' | 'language' | 'temperature' | 'top_p' | 'dictionary_id' | 'dictionary_version'
+    >
+  >;
+}
 
 /** MCP Server configuration */
 export interface MCPServerConfig {
@@ -532,6 +546,8 @@ export interface CreateOutboundCallRequest {
   target_phone_number: string;
   /** Optional runtime prompt variables */
   dynamic_variables?: DynamicVariables | null;
+  /** Optional runtime config overrides */
+  agent_overrides?: RuntimeAgentOverrides | null;
 }
 
 /** Response body for outbound call creation */
@@ -946,6 +962,7 @@ export interface DeletePronunciationDictionaryResponse {
 export interface ConnectionDetailsRequest {
   agent_id?: string | null;
   dynamic_variables?: DynamicVariables | null;
+  agent_overrides?: RuntimeAgentOverrides | null;
   [key: string]: any;
 }
 

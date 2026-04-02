@@ -403,6 +403,44 @@ describe('VoiceAI', () => {
       expect(details.callId).toBe('call-xyz');
     });
 
+    it('should include agent overrides when fetching connection details', async () => {
+      const sdk = new VoiceAI({ apiKey: 'vk_test', apiUrl: 'https://api.example.com/api/v1' });
+
+      (global.fetch as Mock).mockResolvedValueOnce({
+        ok: true,
+        json: async () => ({
+          server_url: 'wss://lk.example.com',
+          participant_token: 'token-abc',
+          call_id: 'call-xyz',
+        }),
+      });
+
+      await sdk.getConnectionDetails({
+        agentId: 'agent-123',
+        agentOverrides: {
+          tts_params: {
+            voice_id: 'voice-override',
+            model: 'voiceai-tts-v1-latest',
+          },
+        },
+      });
+
+      expect(global.fetch).toHaveBeenCalledWith(
+        'https://api.example.com/api/v1/connection/connection-details',
+        expect.objectContaining({
+          body: JSON.stringify({
+            agent_id: 'agent-123',
+            agent_overrides: {
+              tts_params: {
+                voice_id: 'voice-override',
+                model: 'voiceai-tts-v1-latest',
+              },
+            },
+          }),
+        })
+      );
+    });
+
     it('should throw error when no API key', async () => {
       const sdk = new VoiceAI();
 
@@ -499,6 +537,46 @@ describe('VoiceAI', () => {
           body: JSON.stringify({
             agent_id: 'agent-123',
             dynamic_variables: { customer_name: 'Alice', order_id: 12345, is_priority: true },
+          }),
+        })
+      );
+    });
+
+    it('should send runtime agent overrides', async () => {
+      const sdk = new VoiceAI({ apiKey: 'vk_test' });
+
+      (global.fetch as Mock).mockResolvedValueOnce({
+        ok: true,
+        json: async () => ({
+          server_url: 'wss://test.com',
+          participant_token: 'token123',
+          call_id: 'call123',
+        }),
+      });
+
+      await sdk.connect({
+        agentId: 'agent-123',
+        dynamicVariables: { customer_name: 'Alice' },
+        agentOverrides: {
+          tts_params: {
+            voice_id: 'voice-override',
+            language: 'en',
+          },
+        },
+      });
+
+      expect(global.fetch).toHaveBeenCalledWith(
+        expect.any(String),
+        expect.objectContaining({
+          body: JSON.stringify({
+            agent_id: 'agent-123',
+            dynamic_variables: { customer_name: 'Alice' },
+            agent_overrides: {
+              tts_params: {
+                voice_id: 'voice-override',
+                language: 'en',
+              },
+            },
           }),
         })
       );
