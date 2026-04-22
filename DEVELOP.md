@@ -1,6 +1,6 @@
 # Voice.ai Web SDK Development Guide
 
-This document describes how to set up, build, and distribute the Voice.ai Web SDK.
+This document describes how to set up, build, test, demo, and distribute the Voice.ai Web SDK.
 
 ## Prerequisites
 
@@ -14,7 +14,7 @@ This document describes how to set up, build, and distribute the Voice.ai Web SD
 ```bash
 # Clone the repository
 git clone https://github.com/voice-ai/web-sdk.git
-cd web-sdk/sdk-web
+cd web-sdk
 
 # Install dependencies
 pnpm install
@@ -25,7 +25,8 @@ pnpm install
 | Command | Description |
 |---------|-------------|
 | `pnpm build` | Build the SDK for production |
-| `pnpm dev` | Start local demo server |
+| `pnpm dev` | Start the local static demo server |
+| `pnpm watch` | Rebuild TypeScript in watch mode |
 | `pnpm test` | Run tests once |
 | `pnpm test:watch` | Run tests in watch mode |
 | `pnpm test:coverage` | Run tests with coverage report |
@@ -64,7 +65,7 @@ dist/
 ## Project Structure
 
 ```
-sdk-web/
+web-sdk/
 ├── src/
 │   ├── index.ts              # Main VoiceAI class + exports
 │   ├── types.ts              # TypeScript interfaces
@@ -74,14 +75,25 @@ sdk-web/
 │   │   ├── agents.ts         # Agent API
 │   │   ├── analytics.ts      # Analytics API
 │   │   ├── knowledge-base.ts # Knowledge Base API
-│   │   └── phone-numbers.ts  # Phone Numbers API
+│   │   ├── managed-tools.ts  # Managed tools API client
+│   │   ├── phone-numbers.ts  # Phone numbers API
+│   │   └── tts.ts            # Text-to-speech API
 │   ├── components/           # UI components (sample)
 │   │   ├── VoiceAgentWidget.ts
 │   │   └── voice-agent-widget.css
+│   ├── managed-tools/        # Managed-tool helpers/constants
+│   │   ├── google.ts
+│   │   └── iana-timezones.ts
 │   └── __tests__/            # Test files
 ├── demo/
-│   └── test.html             # Demo page for testing
+│   ├── README.md             # Demo and local server usage
+│   ├── test.html             # Voice widget browser demo
+│   ├── managed-tools.html    # Google managed-tools browser demo
+│   └── server.js             # Standalone local Node test server
 ├── dist/                     # Built output (generated)
+├── README.md                 # Public package README
+├── TESTING.md                # Test workflow reference
+├── CONTRIBUTING.md           # Contribution guide
 ├── package.json
 ├── tsconfig.json
 ├── rollup.config.js
@@ -93,19 +105,44 @@ sdk-web/
 ### Running the Demo
 
 ```bash
+pnpm build
 pnpm dev
 ```
 
-This starts a local HTTP server and opens the demo page at `http://localhost:3000/demo/test.html`.
+This starts a local HTTP server and opens the voice widget demo at `http://localhost:3000/demo/test.html`.
 
-Edit `demo/test.html` to test SDK features during development.
+Other demo entry points are also served from the same host:
+
+- `http://localhost:3000/demo/test.html` - sample `VoiceAgentWidget` browser demo
+- `http://localhost:3000/demo/managed-tools.html` - Google managed-tools browser demo
+
+Use [demo/README.md](demo/README.md) for the current demo-specific instructions.
+
+### Running the Standalone Node Test Server
+
+The standalone Node server is useful when you want to exercise SDK-backed endpoints with `curl`, Postman, or another HTTP client.
+
+```bash
+pnpm build
+export VOICEAI_API_KEY="vk_your_api_key_here"
+node ./demo/server.js
+```
+
+That server exposes local endpoints such as:
+
+- `GET /health`
+- `GET /commands`
+- `POST /run`
+
+See [demo/README.md](demo/README.md) for request formats and examples.
 
 ### Making Changes
 
 1. Edit source files in `src/`
 2. Build to verify compilation: `pnpm build`
-3. Test with the demo: `pnpm dev`
-4. Run tests: `pnpm test`
+3. Run tests: `pnpm test`
+4. Exercise the browser demos with `pnpm dev`
+5. Exercise REST and file-upload flows with `node ./demo/server.js` when needed
 
 ## Distribution
 
@@ -131,7 +168,7 @@ Key fields in `package.json`:
 ```json
 {
   "name": "@voice-ai-labs/web-sdk",
-  "version": "0.2.0",
+  "version": "<current-version>",
   "type": "module",
   "main": "dist/index.js",         // CommonJS entry
   "module": "dist/index.esm.js",   // ESM entry
@@ -139,6 +176,8 @@ Key fields in `package.json`:
   "files": ["dist"]                // Only publish dist/
 }
 ```
+
+The npm package publishes the built SDK from `dist/`. Demo assets and development docs remain repository-only.
 
 ### Version Bumping
 
@@ -159,7 +198,7 @@ npm version major
 
 ```bash
 # Beta release
-npm version 0.3.0-beta.1
+npm version 1.0.2-beta.1
 
 # Publish with tag
 npm publish --access public --tag beta
