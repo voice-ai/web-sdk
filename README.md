@@ -461,8 +461,7 @@ await voiceai.connect({
   agentOverrides: {
     tts_params: {
       voice_id: 'voice_vip_alice',
-      model: 'voiceai-tts-v1-latest',
-      language: 'en',
+      temperature: 0.8,
     },
   },
 });
@@ -471,7 +470,7 @@ await voiceai.connect({
 - `agentOverrides` is separate from `dynamicVariables`.
 - `dynamicVariables` is for prompt and greeting interpolation.
 - `agentOverrides` is for allowlisted runtime config changes.
-- v1 supports only `tts_params.voice_id`, `model`, `language`, `temperature`, `top_p`, `dictionary_id`, and `dictionary_version`.
+- v1 supports only `tts_params.voice_id`, `temperature`, `top_p`, `dictionary_id`, and `dictionary_version`.
 - `agentOverrides` uses the same nested shape as agent config, so voice overrides live under `tts_params`.
 
 ## Knowledge Base
@@ -773,8 +772,6 @@ interface InboundCallWebhookResponse {
   agent_overrides?: {
     tts_params?: {
       voice_id?: string;
-      model?: string;
-      language?: string;
       temperature?: number;
       top_p?: number;
       dictionary_id?: string;
