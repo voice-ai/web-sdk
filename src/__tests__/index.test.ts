@@ -420,7 +420,7 @@ describe('VoiceAI', () => {
         agentOverrides: {
           tts_params: {
             voice_id: 'voice-override',
-            model: 'voiceai-tts-v1-latest',
+            temperature: 0.8,
           },
         },
       });
@@ -433,7 +433,7 @@ describe('VoiceAI', () => {
             agent_overrides: {
               tts_params: {
                 voice_id: 'voice-override',
-                model: 'voiceai-tts-v1-latest',
+                temperature: 0.8,
               },
             },
           }),
@@ -560,7 +560,7 @@ describe('VoiceAI', () => {
         agentOverrides: {
           tts_params: {
             voice_id: 'voice-override',
-            language: 'en',
+            temperature: 0.8,
           },
         },
       });
@@ -574,7 +574,7 @@ describe('VoiceAI', () => {
             agent_overrides: {
               tts_params: {
                 voice_id: 'voice-override',
-                language: 'en',
+                temperature: 0.8,
               },
             },
           }),

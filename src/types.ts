@@ -163,7 +163,7 @@ export interface TTSParams {
   /** Voice ID to use for text-to-speech generation */
   voice_id?: string | null;
   /** TTS model to use. If not provided, automatically selected based on language.
-   * Examples: 'voiceai-tts-v1-latest', 'voiceai-tts-multilingual-v1-latest' */
+   * Examples: 'voiceai-tts-v1-latest', 'voiceai-tts-lite-v1-latest', 'voiceai-tts-multilingual-v1-latest' */
   model?: string | null;
   /** Language code (ISO 639-1 format, e.g., 'en', 'es', 'fr').
    * Use 'auto' for ASR-detected language at runtime (requires multilingual model).
@@ -192,7 +192,7 @@ export interface RuntimeAgentOverrides {
   tts_params?: Partial<
     Pick<
       TTSParams,
-      'voice_id' | 'model' | 'language' | 'temperature' | 'top_p' | 'dictionary_id' | 'dictionary_version'
+      'voice_id' | 'temperature' | 'top_p' | 'dictionary_id' | 'dictionary_version'
     >
   >;
 }

@@ -420,13 +420,14 @@ Notes:
 
 ### Dynamic Variables
 
-Pass optional `dynamic_variables` at call start and reference them in your prompt with `{{variable_name}}`:
+Pass optional `dynamic_variables` at call start and reference them in your prompt or greeting with `{{variable_name}}`:
 
 ```typescript
 await voiceai.agents.update(agent.agent_id, {
   config: {
     allow_outbound_calling: true,
-    prompt: 'You are helping {{customer_name}} with order {{order_id}}.'
+    prompt: 'You are helping {{customer_name}} with order {{order_id}} for the {{account_tier}} account.',
+    greeting: 'Hi {{customer_name}}, I can help with your {{city}} delivery today.'
   }
 });
 
@@ -434,15 +435,18 @@ await voiceai.connect({
   agentId: agent.agent_id,
   dynamicVariables: {
     customer_name: 'Alice',
-    order_id: '12345'
+    order_id: '12345',
+    account_tier: 'gold',
+    city: 'Seattle'
   }
 });
 ```
 
 - `dynamic_variables` must be a flat object of string, number, or boolean values.
 - Extra variables are allowed.
-- Variables that are not referenced by the runtime prompt are ignored.
-- The runtime is responsible for interpolating these variables into the prompt.
+- Variables that are not referenced by the runtime prompt or greeting are ignored.
+- The runtime is responsible for interpolating these variables into the prompt and greeting.
+- If the same placeholder appears multiple times, the same runtime value is used for every occurrence.
 
 ### Runtime Agent Overrides
 
@@ -457,8 +461,7 @@ await voiceai.connect({
   agentOverrides: {
     tts_params: {
       voice_id: 'voice_vip_alice',
-      model: 'voiceai-tts-v1-latest',
-      language: 'en',
+      temperature: 0.8,
     },
   },
 });
@@ -467,7 +470,7 @@ await voiceai.connect({
 - `agentOverrides` is separate from `dynamicVariables`.
 - `dynamicVariables` is for prompt and greeting interpolation.
 - `agentOverrides` is for allowlisted runtime config changes.
-- v1 supports only `tts_params.voice_id`, `model`, `language`, `temperature`, `top_p`, `dictionary_id`, and `dictionary_version`.
+- v1 supports only `tts_params.voice_id`, `temperature`, `top_p`, `dictionary_id`, and `dictionary_version`.
 - `agentOverrides` uses the same nested shape as agent config, so voice overrides live under `tts_params`.
 
 ## Knowledge Base
@@ -769,8 +772,6 @@ interface InboundCallWebhookResponse {
   agent_overrides?: {
     tts_params?: {
       voice_id?: string;
-      model?: string;
-      language?: string;
       temperature?: number;
       top_p?: number;
       dictionary_id?: string;
