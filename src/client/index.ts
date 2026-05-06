@@ -9,5 +9,6 @@ export { AgentClient } from './agents';
 export { AnalyticsClient } from './analytics';
 export { KnowledgeBaseClient } from './knowledge-base';
 export { ManagedToolsClient } from './managed-tools';
+export { ModelsClient } from './models';
 export { PhoneNumberClient } from './phone-numbers';
 export { TTSClient } from './tts';

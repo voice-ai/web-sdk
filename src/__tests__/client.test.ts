@@ -21,12 +21,43 @@ describe('VoiceAI REST API (agents, analytics, tts, etc.)', () => {
       expect(client.knowledgeBase).toBeDefined();
       expect(client.phoneNumbers).toBeDefined();
       expect(client.tts).toBeDefined();
+      expect(client.models).toBeDefined();
       expect(client.managedTools).toBeDefined();
     });
 
     it('should have managed tools client when auth token provider provided', () => {
       const client = new VoiceAI({ getAuthToken: async () => 'jwt_token' });
       expect(client.managedTools).toBeDefined();
+    });
+  });
+
+
+  describe('ModelsClient', () => {
+    it('should list supported models', async () => {
+      const client = new VoiceAI({ apiKey: 'vk_test_key' });
+      const mockModels = {
+        llm_models: ['openai/gpt-oss-120b-maas', 'zai-org/glm-5-maas'],
+        tts_models: ['voiceai-tts-v1-latest'],
+      };
+
+      (global.fetch as Mock).mockResolvedValueOnce({
+        ok: true,
+        headers: new Headers({ 'content-type': 'application/json' }),
+        json: async () => mockModels,
+      });
+
+      const result = await client.models.list();
+
+      expect(result).toEqual(mockModels);
+      expect(global.fetch).toHaveBeenCalledWith(
+        'https://dev.voice.ai/api/v1/models',
+        expect.objectContaining({
+          method: 'GET',
+          headers: expect.objectContaining({
+            Authorization: 'Bearer vk_test_key',
+          }),
+        })
+      );
     });
   });
 

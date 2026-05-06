@@ -89,6 +89,7 @@ describe('VoiceAI', () => {
       expect(sdk.knowledgeBase).toBeDefined();
       expect(sdk.phoneNumbers).toBeDefined();
       expect(sdk.tts).toBeDefined();
+      expect(sdk.models).toBeDefined();
     });
 
     it('should throw when accessing API clients without API key', () => {
@@ -96,6 +97,7 @@ describe('VoiceAI', () => {
       expect(() => sdk.agents).toThrow('API key required');
       expect(() => sdk.analytics).toThrow('API key required');
       expect(() => sdk.tts).toThrow('API key required');
+      expect(() => sdk.models).toThrow('API key required');
     });
   });
 

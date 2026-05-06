@@ -1003,3 +1003,12 @@ export interface VoiceAIConfig {
   /** API base URL (optional, defaults to production) */
   apiUrl?: string;
 }
+
+// =============================================================================
+// MODELS DISCOVERY TYPES
+// =============================================================================
+
+export interface ModelsResponse {
+  llm_models: string[];
+  tts_models: string[];
+}
