@@ -13,10 +13,11 @@ import type {
 describe('Webhook Types', () => {
   describe('WebhookEventType', () => {
     it('should accept valid event types', () => {
-      const validTypes: WebhookEventType[] = ['call.started', 'call.completed'];
-      expect(validTypes).toHaveLength(2);
+      const validTypes: WebhookEventType[] = ['call.started', 'call.completed', 'call.failed'];
+      expect(validTypes).toHaveLength(3);
       expect(validTypes).toContain('call.started');
       expect(validTypes).toContain('call.completed');
+      expect(validTypes).toContain('call.failed');
     });
   });
 
@@ -25,14 +26,14 @@ describe('Webhook Types', () => {
       const config: WebhookEventsConfig = {
         url: 'https://example.com/webhooks',
         secret: 'my-secret-key',
-        events: ['call.started', 'call.completed'],
+        events: ['call.started', 'call.completed', 'call.failed'],
         timeout: 10,
         enabled: true,
       };
 
       expect(config.url).toBe('https://example.com/webhooks');
       expect(config.secret).toBe('my-secret-key');
-      expect(config.events).toHaveLength(2);
+      expect(config.events).toHaveLength(3);
       expect(config.timeout).toBe(10);
       expect(config.enabled).toBe(true);
     });
@@ -338,6 +339,29 @@ describe('Webhook Types', () => {
       expect(event.data.duration_seconds).toBe(300);
       expect(event.data.credits_used).toBe(5.5);
       expect(event.data.from_number).toBe('+14155551234');
+    });
+
+    it('should define call.failed validation payload', () => {
+      const event: WebhookEvent = {
+        event: 'call.failed',
+        timestamp: '2024-01-01T12:00:00Z',
+        call_id: 'call-123',
+        agent_id: 'agent-456',
+        data: {
+          status: 'failed',
+          failure_stage: 'validation',
+          reason: 'insufficient_credits',
+          call_type: 'sip_inbound',
+          details: { allowed: false, reason: 'insufficient_credits' },
+          from_number: '+14155551234',
+          to_number: '+18005551234',
+        },
+      };
+
+      expect(event.event).toBe('call.failed');
+      expect(event.call_id).toBe('call-123');
+      expect(event.data.failure_stage).toBe('validation');
+      expect(event.data.reason).toBe('insufficient_credits');
     });
 
     it('should allow test event type', () => {

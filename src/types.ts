@@ -289,7 +289,7 @@ export interface GoogleConnectionStatus {
 // =============================================================================
 
 /** Webhook event types */
-export type WebhookEventType = 'call.started' | 'call.completed';
+export type WebhookEventType = 'call.started' | 'call.completed' | 'call.failed';
 
 /**
  * Webhook event notification configuration exposed by the public API.
@@ -304,7 +304,7 @@ export interface WebhookEventsConfig {
   secret?: string | null;
   /** Whether a signing secret is configured (returned by API) */
   has_secret?: boolean;
-  /** Event types to receive. Empty array = all events. Options: 'call.started', 'call.completed' */
+  /** Event types to receive. Empty array = all events. Options: 'call.started', 'call.completed', 'call.failed' */
   events?: WebhookEventType[];
   /** Request timeout in seconds (default: 5, range: 1-30) */
   timeout?: number;
@@ -1002,4 +1002,18 @@ export interface VoiceAIConfig {
   getAuthToken?: AuthTokenProvider;
   /** API base URL (optional, defaults to production) */
   apiUrl?: string;
+}
+
+// =============================================================================
+// MODELS DISCOVERY TYPES
+// =============================================================================
+
+export interface ModelOption {
+  id: string;
+  name: string;
+}
+
+export interface ModelsResponse {
+  llm_models: ModelOption[];
+  tts_models: ModelOption[];
 }

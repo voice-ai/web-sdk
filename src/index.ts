@@ -27,6 +27,7 @@ import { AgentClient } from './client/agents';
 import { AnalyticsClient } from './client/analytics';
 import { KnowledgeBaseClient } from './client/knowledge-base';
 import { ManagedToolsClient } from './client/managed-tools';
+import { ModelsClient } from './client/models';
 import { PhoneNumberClient } from './client/phone-numbers';
 import { TTSClient } from './client/tts';
 import type {
@@ -116,6 +117,14 @@ export class VoiceAI {
   }
   private _tts?: TTSClient;
 
+
+  /** Public models catalog - discover supported LLM/TTS choices. */
+  public get models(): ModelsClient {
+    if (!this._models) throw new VoiceAIError('API key required for models API, or pass authToken/getAuthToken in the constructor.');
+    return this._models;
+  }
+  private _models?: ModelsClient;
+
   /** Managed tools - provider-specific OAuth/status/disconnect helpers. */
   public get managedTools(): ManagedToolsClient {
     if (!this._managedTools) throw new VoiceAIError('API key required for managedTools API, or pass authToken/getAuthToken in the constructor.');
@@ -171,6 +180,7 @@ export class VoiceAI {
       this._knowledgeBase = new KnowledgeBaseClient(clientConfig);
       this._phoneNumbers = new PhoneNumberClient(clientConfig);
       this._tts = new TTSClient(clientConfig);
+      this._models = new ModelsClient(clientConfig);
       this._managedTools = new ManagedToolsClient(clientConfig);
     }
   }
