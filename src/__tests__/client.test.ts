@@ -36,8 +36,11 @@ describe('VoiceAI REST API (agents, analytics, tts, etc.)', () => {
     it('should list supported models', async () => {
       const client = new VoiceAI({ apiKey: 'vk_test_key' });
       const mockModels = {
-        llm_models: ['openai/gpt-oss-120b-maas', 'zai-org/glm-5-maas'],
-        tts_models: ['voiceai-tts-v1-latest'],
+        llm_models: [
+          { id: 'openai/gpt-oss-120b-maas', name: 'OpenAI GPT-OSS 120B MaaS' },
+          { id: 'zai-org/glm-5-maas', name: 'ZAI GLM-5 MaaS' },
+        ],
+        tts_models: [{ id: 'voiceai-tts-v1-latest', name: 'VoiceAI TTS v1 Latest' }],
       };
 
       (global.fetch as Mock).mockResolvedValueOnce({

@@ -568,7 +568,7 @@ const agent = await voiceai.agents.create({
         {
           url: 'https://your-server.com/webhooks/voice-events',
           secret: 'your-hmac-secret',  // Event webhook signing secret
-          events: ['call.started', 'call.completed'],  // Or omit for all events
+          events: ['call.started', 'call.completed', 'call.failed'],  // Or omit for all events
           timeout: 5,
           enabled: true
         }
@@ -667,6 +667,7 @@ If a field is optional and omitted, the service uses the documented default. Pre
 |-------|-------------|
 | `call.started` | Call connected, agent ready |
 | `call.completed` | Call ended, includes transcript and usage data |
+| `call.failed` | Call failed before start, includes validation failure details |
 
 ### Event Webhook Payload
 
@@ -674,14 +675,15 @@ Your event webhook URL receives POST requests with this structure:
 
 ```typescript
 interface WebhookEvent {
-  event: 'call.started' | 'call.completed' | 'test';
+  event: 'call.started' | 'call.completed' | 'call.failed' | 'test';
   timestamp: string;  // ISO 8601
-  call_id: string;
+  call_id: string | null;
   agent_id: string;
   data: {
     call_type: 'web' | 'sip_inbound' | 'sip_outbound';
     // call.started: started_at, from_number?, to_number?
     // call.completed: duration_seconds, credits_used, transcript_uri, transcript_summary
+    // call.failed: status, failure_stage, reason, details
   };
 }
 ```
